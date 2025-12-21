@@ -213,28 +213,43 @@ def main():
     # Discord Integration
     st.sidebar.header("🔔 Discord Notifications")
 
-    enable_discord = st.sidebar.checkbox("Enable Discord Alerts", value=False)
-
+    # Check if webhook is configured in secrets
     discord_webhook = None
-    if enable_discord:
-        discord_webhook = st.sidebar.text_input(
-            "Discord Webhook URL",
-            type="password",
-            help="Paste your Discord webhook URL here"
-        )
+    webhook_from_secrets = False
+    try:
+        if hasattr(st, 'secrets') and 'discord' in st.secrets and 'webhook_url' in st.secrets['discord']:
+            discord_webhook = st.secrets['discord']['webhook_url']
+            webhook_from_secrets = True
+            st.sidebar.success("✅ Webhook configured from secrets")
+    except:
+        pass
 
+    # If no webhook in secrets, allow manual input
+    if not webhook_from_secrets:
+        enable_discord = st.sidebar.checkbox("Enable Discord Alerts", value=False)
+        if enable_discord:
+            discord_webhook = st.sidebar.text_input(
+                "Discord Webhook URL",
+                type="password",
+                help="Paste your Discord webhook URL here"
+            )
+    else:
+        enable_discord = True
+
+    if enable_discord or webhook_from_secrets:
         st.sidebar.markdown("**Alert Types:**")
         alert_new_stocks = st.sidebar.checkbox("New stocks entering zones", value=True)
         alert_price_signals = st.sidebar.checkbox("Price alerts (RSI/MACD)", value=True)
 
-        with st.sidebar.expander("📘 How to get Webhook URL"):
-            st.markdown("""
-            1. Go to your Discord server
-            2. Server Settings → Integrations
-            3. Create Webhook
-            4. Copy URL and paste above
-            5. [Learn more](https://support.discord.com/hc/en-us/articles/228383668)
-            """)
+        if not webhook_from_secrets:
+            with st.sidebar.expander("📘 How to get Webhook URL"):
+                st.markdown("""
+                1. Go to your Discord server
+                2. Server Settings → Integrations
+                3. Create Webhook
+                4. Copy URL and paste above
+                5. [Learn more](https://support.discord.com/hc/en-us/articles/228383668)
+                """)
     else:
         alert_new_stocks = False
         alert_price_signals = False

@@ -1,0 +1,48 @@
+name: Scheduled Stock Scan
+
+on:
+  schedule:
+    # Times in UTC (EST = UTC-5, EDT = UTC-4)
+    # Adjust based on daylight saving time
+    # 9:35 AM EST = 14:35 UTC (EST) or 13:35 UTC (EDT)
+    - cron: '35 14 * * 1-5'  # 9:35 AM EST, Monday-Friday
+    # 12:00 PM EST = 17:00 UTC (EST) or 16:00 UTC (EDT)
+    - cron: '00 17 * * 1-5'  # 12:00 PM EST, Monday-Friday
+    # 2:00 PM EST = 19:00 UTC (EST) or 18:00 UTC (EDT)
+    - cron: '00 19 * * 1-5'  # 2:00 PM EST, Monday-Friday
+    # 3:45 PM EST = 20:45 UTC (EST) or 19:45 UTC (EDT)
+    - cron: '45 20 * * 1-5'  # 3:45 PM EST, Monday-Friday
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run stock scan
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python scheduled_scanner.py
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@v3
+        with:
+          name: scan-results
+          path: scan_results_*.json
+          retention-days: 7

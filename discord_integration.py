@@ -21,6 +21,7 @@ class DiscordNotifier:
     def send_new_stocks_alert(self, new_stocks, scan_timestamp=None):
         """
         Send alert for new stocks entering demand zones.
+        Intelligently batches large results into multiple messages.
 
         Args:
             new_stocks (list): List of new stock results
@@ -33,20 +34,52 @@ class DiscordNotifier:
             return False
 
         try:
+            # If many stocks, send summary first
+            if len(new_stocks) > 10:
+                summary_webhook = DiscordWebhook(url=self.webhook_url)
+                summary_embed = DiscordEmbed(
+                    title="🚨 New Stocks Alert Summary",
+                    description=f"**{len(new_stocks)}** new stocks entered demand zones!",
+                    color=0x00ff00
+                )
+
+                # Top picks based on RSI
+                oversold = [s for s in new_stocks if s.get('indicators', {}).get('rsi_signal') == 'Oversold']
+                bullish_macd = [s for s in new_stocks if s.get('indicators', {}).get('macd_trend') == 'Bullish']
+
+                summary_embed.add_embed_field(
+                    name="📊 Quick Stats",
+                    value=f"• {len(oversold)} Oversold (RSI < 30)\n• {len(bullish_macd)} Bullish MACD\n• Showing top 5 below",
+                    inline=False
+                )
+
+                if scan_timestamp:
+                    summary_embed.set_timestamp(scan_timestamp.timestamp())
+
+                summary_embed.set_footer(text="Stock Demand Zone Scanner")
+                summary_webhook.add_embed(summary_embed)
+                summary_webhook.execute()
+
+                # Show top 5 most interesting (oversold first)
+                new_stocks = sorted(new_stocks, key=lambda x: (
+                    x.get('indicators', {}).get('rsi_signal') != 'Oversold',
+                    x.get('indicators', {}).get('rsi', 50)
+                ))[:5]
+
+            # Detailed message for stocks (max 5)
             webhook = DiscordWebhook(url=self.webhook_url)
 
-            # Create embed
             embed = DiscordEmbed(
-                title="🚨 New Stocks at Demand Zones!",
-                description=f"Found **{len(new_stocks)}** new stock(s) at multi-year demand zones",
+                title="📈 Top Stock Details" if len(new_stocks) > 5 else "🚨 New Stocks at Demand Zones",
+                description=f"Showing {len(new_stocks)} stock(s)" if len(new_stocks) > 10 else f"Found **{len(new_stocks)}** new stock(s)",
                 color=0x00ff00
             )
 
-            if scan_timestamp:
+            if scan_timestamp and len(new_stocks) <= 10:
                 embed.set_timestamp(scan_timestamp.timestamp())
 
             # Add each stock as a field
-            for stock in new_stocks[:10]:  # Limit to 10 to avoid message too long
+            for stock in new_stocks[:5]:
                 ticker = stock['ticker']
                 current_price = stock['current_price']
                 zone = stock['zone']
@@ -59,21 +92,18 @@ class DiscordNotifier:
 
                 if indicators:
                     if indicators.get('rsi'):
-                        field_value += f"**RSI:** {indicators['rsi']:.1f} ({indicators.get('rsi_signal', 'N/A')})\n"
+                        rsi_emoji = "🟢" if indicators.get('rsi_signal') == 'Oversold' else "🟡"
+                        field_value += f"{rsi_emoji} **RSI:** {indicators['rsi']:.1f} ({indicators.get('rsi_signal', 'N/A')})\n"
                     if indicators.get('macd_trend'):
-                        field_value += f"**MACD:** {indicators['macd_trend']}\n"
+                        macd_emoji = "📈" if indicators['macd_trend'] == 'Bullish' else "📉"
+                        field_value += f"{macd_emoji} **MACD:** {indicators['macd_trend']}\n"
+                    if indicators.get('volume_ratio', 0) > 2:
+                        field_value += f"🔥 **Volume:** {indicators['volume_ratio']:.1f}x avg\n"
 
                 embed.add_embed_field(
                     name=f"📊 {ticker}",
                     value=field_value,
                     inline=True
-                )
-
-            if len(new_stocks) > 10:
-                embed.add_embed_field(
-                    name="ℹ️ Note",
-                    value=f"And {len(new_stocks) - 10} more stocks...",
-                    inline=False
                 )
 
             embed.set_footer(text="Stock Demand Zone Scanner")
