@@ -21,7 +21,7 @@ class DiscordNotifier:
     def send_new_stocks_alert(self, new_stocks, scan_timestamp=None):
         """
         Send alert for new stocks entering demand zones.
-        Intelligently batches large results into multiple messages.
+        Shows only top 3 when more than 5 stocks to avoid spam.
 
         Args:
             new_stocks (list): List of new stock results
@@ -34,52 +34,40 @@ class DiscordNotifier:
             return False
 
         try:
-            # If many stocks, send summary first
-            if len(new_stocks) > 10:
-                summary_webhook = DiscordWebhook(url=self.webhook_url)
-                summary_embed = DiscordEmbed(
-                    title="🚨 New Stocks Alert Summary",
-                    description=f"**{len(new_stocks)}** new stocks entered demand zones!",
-                    color=0x00ff00
-                )
+            total_stocks = len(new_stocks)
 
-                # Top picks based on RSI
-                oversold = [s for s in new_stocks if s.get('indicators', {}).get('rsi_signal') == 'Oversold']
-                bullish_macd = [s for s in new_stocks if s.get('indicators', {}).get('macd_trend') == 'Bullish']
+            # Sort by best opportunities (oversold first, then lowest RSI)
+            sorted_stocks = sorted(new_stocks, key=lambda x: (
+                x.get('indicators', {}).get('rsi_signal') != 'Oversold',
+                x.get('indicators', {}).get('rsi', 50)
+            ))
 
-                summary_embed.add_embed_field(
-                    name="📊 Quick Stats",
-                    value=f"• {len(oversold)} Oversold (RSI < 30)\n• {len(bullish_macd)} Bullish MACD\n• Showing top 5 below",
-                    inline=False
-                )
+            # If more than 5, only show top 3
+            stocks_to_show = sorted_stocks[:3] if total_stocks > 5 else sorted_stocks
+            remaining_count = total_stocks - len(stocks_to_show)
 
-                if scan_timestamp:
-                    summary_embed.set_timestamp(scan_timestamp.timestamp())
-
-                summary_embed.set_footer(text="Stock Demand Zone Scanner")
-                summary_webhook.add_embed(summary_embed)
-                summary_webhook.execute()
-
-                # Show top 5 most interesting (oversold first)
-                new_stocks = sorted(new_stocks, key=lambda x: (
-                    x.get('indicators', {}).get('rsi_signal') != 'Oversold',
-                    x.get('indicators', {}).get('rsi', 50)
-                ))[:5]
-
-            # Detailed message for stocks (max 5)
+            # Create webhook
             webhook = DiscordWebhook(url=self.webhook_url)
 
+            # Title and description based on count
+            if total_stocks > 5:
+                title = "🚨 New Stocks at Support Levels"
+                description = f"**{total_stocks}** stocks found at proven support!\nShowing top **{len(stocks_to_show)}** best opportunities."
+            else:
+                title = "🚨 New Stocks at Support Levels"
+                description = f"Found **{total_stocks}** stock(s) at proven support levels"
+
             embed = DiscordEmbed(
-                title="📈 Top Stock Details" if len(new_stocks) > 5 else "🚨 New Stocks at Demand Zones",
-                description=f"Showing {len(new_stocks)} stock(s)" if len(new_stocks) > 10 else f"Found **{len(new_stocks)}** new stock(s)",
+                title=title,
+                description=description,
                 color=0x00ff00
             )
 
-            if scan_timestamp and len(new_stocks) <= 10:
+            if scan_timestamp:
                 embed.set_timestamp(scan_timestamp.timestamp())
 
             # Add each stock as a field
-            for stock in new_stocks[:5]:
+            for stock in stocks_to_show:
                 ticker = stock['ticker']
                 current_price = stock['current_price']
                 zone = stock['zone']
@@ -106,7 +94,13 @@ class DiscordNotifier:
                     inline=True
                 )
 
-            embed.set_footer(text="Stock Demand Zone Scanner")
+            # Add footer with remaining count if applicable
+            if remaining_count > 0:
+                footer_text = f"Stock Scanner • {remaining_count} more stocks not shown - check the website for full list"
+            else:
+                footer_text = "Stock Demand Zone Scanner"
+
+            embed.set_footer(text=footer_text)
 
             webhook.add_embed(embed)
             response = webhook.execute()
