@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from scipy.signal import argrelextrema
+import pandas_ta as ta
 import config
 
 
@@ -155,6 +156,90 @@ class DemandZoneScanner:
 
         return None
 
+    def calculate_technical_indicators(self, df):
+        """
+        Calculate technical indicators for the stock.
+
+        Args:
+            df (pd.DataFrame): Weekly OHLCV data
+
+        Returns:
+            dict: Technical indicators
+        """
+        if df is None or len(df) < 50:
+            return None
+
+        try:
+            df_calc = df.copy()
+
+            # RSI (14-period)
+            rsi = ta.rsi(df_calc['Close'], length=14)
+            current_rsi = rsi.iloc[-1] if not rsi.empty else None
+
+            # MACD
+            macd_result = ta.macd(df_calc['Close'])
+            if macd_result is not None and not macd_result.empty:
+                current_macd = macd_result['MACD_12_26_9'].iloc[-1]
+                current_macd_signal = macd_result['MACDs_12_26_9'].iloc[-1]
+                current_macd_hist = macd_result['MACDh_12_26_9'].iloc[-1]
+            else:
+                current_macd = current_macd_signal = current_macd_hist = None
+
+            # Moving Averages
+            sma_50 = ta.sma(df_calc['Close'], length=50)
+            sma_200 = ta.sma(df_calc['Close'], length=200)
+
+            current_price = df_calc['Close'].iloc[-1]
+            ma_50 = sma_50.iloc[-1] if not sma_50.empty else None
+            ma_200 = sma_200.iloc[-1] if not sma_200.empty and len(df_calc) >= 200 else None
+
+            # Volume Analysis
+            avg_volume_20 = df_calc['Volume'].rolling(window=20).mean().iloc[-1]
+            current_volume = df_calc['Volume'].iloc[-1]
+            volume_ratio = (current_volume / avg_volume_20) if avg_volume_20 > 0 else 1
+
+            # Calculate position relative to MAs
+            above_ma50 = current_price > ma_50 if ma_50 else None
+            above_ma200 = current_price > ma_200 if ma_200 else None
+
+            # RSI interpretation
+            rsi_signal = None
+            if current_rsi:
+                if current_rsi < 30:
+                    rsi_signal = "Oversold"
+                elif current_rsi > 70:
+                    rsi_signal = "Overbought"
+                else:
+                    rsi_signal = "Neutral"
+
+            # MACD interpretation
+            macd_signal_text = None
+            if current_macd and current_macd_signal:
+                if current_macd > current_macd_signal:
+                    macd_signal_text = "Bullish"
+                else:
+                    macd_signal_text = "Bearish"
+
+            return {
+                'rsi': current_rsi,
+                'rsi_signal': rsi_signal,
+                'macd': current_macd,
+                'macd_signal': current_macd_signal,
+                'macd_histogram': current_macd_hist,
+                'macd_trend': macd_signal_text,
+                'ma_50': ma_50,
+                'ma_200': ma_200,
+                'above_ma50': above_ma50,
+                'above_ma200': above_ma200,
+                'current_volume': current_volume,
+                'avg_volume_20': avg_volume_20,
+                'volume_ratio': volume_ratio
+            }
+
+        except Exception as e:
+            print(f"Error calculating indicators: {e}")
+            return None
+
     def scan_ticker(self, ticker):
         """
         Scan a single ticker for demand zones.
@@ -179,12 +264,16 @@ class DemandZoneScanner:
         matched_zone = self.is_at_demand_zone(current_price, zones)
 
         if matched_zone:
+            # Calculate technical indicators
+            indicators = self.calculate_technical_indicators(df)
+
             return {
                 'ticker': ticker,
                 'current_price': current_price,
                 'zone': matched_zone,
                 'all_zones': zones,
-                'data': df
+                'data': df,
+                'indicators': indicators
             }
 
         return None

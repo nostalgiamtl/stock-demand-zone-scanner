@@ -5,6 +5,11 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 from stock_scanner import DemandZoneScanner
 from utils import get_sp500_tickers, format_price, format_percent
+from discord_integration import (
+    DiscordNotifier,
+    detect_new_stocks,
+    detect_price_alerts
+)
 
 st.set_page_config(page_title="Stock Demand Zone Scanner", layout="wide", page_icon="📈")
 
@@ -203,6 +208,37 @@ def main():
         - Refresh only when market moves
         """)
 
+    st.sidebar.markdown("---")
+
+    # Discord Integration
+    st.sidebar.header("🔔 Discord Notifications")
+
+    enable_discord = st.sidebar.checkbox("Enable Discord Alerts", value=False)
+
+    discord_webhook = None
+    if enable_discord:
+        discord_webhook = st.sidebar.text_input(
+            "Discord Webhook URL",
+            type="password",
+            help="Paste your Discord webhook URL here"
+        )
+
+        st.sidebar.markdown("**Alert Types:**")
+        alert_new_stocks = st.sidebar.checkbox("New stocks entering zones", value=True)
+        alert_price_signals = st.sidebar.checkbox("Price alerts (RSI/MACD)", value=True)
+
+        with st.sidebar.expander("📘 How to get Webhook URL"):
+            st.markdown("""
+            1. Go to your Discord server
+            2. Server Settings → Integrations
+            3. Create Webhook
+            4. Copy URL and paste above
+            5. [Learn more](https://support.discord.com/hc/en-us/articles/228383668)
+            """)
+    else:
+        alert_new_stocks = False
+        alert_price_signals = False
+
     # Initialize cache buster in session state
     if 'cache_buster' not in st.session_state:
         st.session_state['cache_buster'] = 0
@@ -248,6 +284,26 @@ def main():
             st.session_state['scan_timestamp'] = scan_timestamp
             st.session_state['scan_started'] = False
 
+            # Discord notifications
+            if enable_discord and discord_webhook and results:
+                notifier = DiscordNotifier(discord_webhook)
+
+                # Detect new stocks
+                if alert_new_stocks:
+                    new_stocks = detect_new_stocks(results)
+                    if new_stocks:
+                        success = notifier.send_new_stocks_alert(new_stocks, scan_timestamp)
+                        if success:
+                            st.sidebar.success(f"🔔 Sent {len(new_stocks)} new stock(s) to Discord!")
+
+                # Price alerts
+                if alert_price_signals:
+                    alerts = detect_price_alerts(results)
+                    for ticker, alert_type, details in alerts[:5]:  # Limit to 5
+                        notifier.send_price_alert(ticker, alert_type, details)
+                    if alerts:
+                        st.sidebar.info(f"⚠️ Sent {len(alerts)} price alert(s)")
+
         except Exception as e:
             st.error(f"Error during scan: {str(e)}")
             progress_bar.empty()
@@ -284,25 +340,41 @@ def main():
         results_data = []
         for result in results:
             zone = result['zone']
-            results_data.append({
+            indicators = result.get('indicators', {})
+
+            row_data = {
                 'Ticker': result['ticker'],
                 'Current Price': result['current_price'],
                 'Zone Low': zone['zone_low'],
                 'Zone High': zone['zone_high'],
-                'Distance from Zone (%)': abs(zone['distance_pct']),
-                'Rally After Zone (%)': zone['rally_pct'],
-                'Zone Strength (weeks)': zone['strength'],
+                'Distance (%)': abs(zone['distance_pct']),
+                'Rally (%)': zone['rally_pct'],
+                'Zone Strength': zone['strength'],
                 'Zone Formed': zone['formed_date'].strftime('%Y-%m-%d')
-            })
+            }
+
+            # Add technical indicators if available
+            if indicators:
+                row_data['RSI'] = indicators.get('rsi')
+                row_data['RSI Signal'] = indicators.get('rsi_signal', 'N/A')
+                row_data['MACD'] = indicators.get('macd_trend', 'N/A')
+                row_data['Above MA50'] = '✓' if indicators.get('above_ma50') else '✗'
+                row_data['Above MA200'] = '✓' if indicators.get('above_ma200') else '✗'
+                row_data['Vol Ratio'] = indicators.get('volume_ratio', 1)
+
+            results_data.append(row_data)
 
         df_results = pd.DataFrame(results_data)
 
         # Sorting options
         col1, col2 = st.columns([2, 1])
         with col1:
+            sort_options = ['Distance (%)', 'Rally (%)', 'Zone Strength', 'RSI', 'Vol Ratio', 'Ticker']
+            # Filter out options not in dataframe
+            available_options = [opt for opt in sort_options if opt in df_results.columns]
             sort_by = st.selectbox(
                 "Sort by",
-                options=['Distance from Zone (%)', 'Rally After Zone (%)', 'Zone Strength (weeks)', 'Ticker'],
+                options=available_options,
                 index=0
             )
         with col2:
@@ -323,15 +395,24 @@ def main():
             help="Download the scan results as a CSV file for further analysis"
         )
 
+        # Format dataframe
+        format_dict = {
+            'Current Price': '${:.2f}',
+            'Zone Low': '${:.2f}',
+            'Zone High': '${:.2f}',
+            'Distance (%)': '{:.2f}%',
+            'Rally (%)': '{:.2f}%',
+            'Zone Strength': '{:.0f}',
+        }
+
+        # Add RSI and Vol Ratio formatting if present
+        if 'RSI' in df_results.columns:
+            format_dict['RSI'] = '{:.1f}'
+        if 'Vol Ratio' in df_results.columns:
+            format_dict['Vol Ratio'] = '{:.2f}x'
+
         st.dataframe(
-            df_results.style.format({
-                'Current Price': '${:.2f}',
-                'Zone Low': '${:.2f}',
-                'Zone High': '${:.2f}',
-                'Distance from Zone (%)': '{:.2f}%',
-                'Rally After Zone (%)': '{:.2f}%',
-                'Zone Strength (weeks)': '{:.0f}'
-            }),
+            df_results.style.format(format_dict),
             use_container_width=True,
             height=400
         )
@@ -365,17 +446,44 @@ def main():
             st.plotly_chart(fig, use_container_width=True)
 
             # Zone information
-            with st.expander("ℹ️ Zone Details"):
-                st.write(f"**Zone Formation Date:** {zone['formed_date'].strftime('%Y-%m-%d')}")
-                st.write(f"**Zone Price Range:** {format_price(zone['zone_low'])} - {format_price(zone['zone_high'])}")
-                st.write(f"**Current Distance from Zone:** {format_percent(abs(zone['distance_pct']))}")
-                st.write(f"**Rally Percentage After Formation:** {format_percent(zone['rally_pct'])}")
-                st.write(f"**Consolidation Period:** {zone['strength']} weeks")
+            col1, col2 = st.columns(2)
 
-                if zone['distance_pct'] <= 0:
-                    st.success("✅ Price is currently INSIDE the demand zone")
-                else:
-                    st.info("ℹ️ Price is near the demand zone (within tolerance)")
+            with col1:
+                with st.expander("ℹ️ Zone Details"):
+                    st.write(f"**Zone Formation Date:** {zone['formed_date'].strftime('%Y-%m-%d')}")
+                    st.write(f"**Zone Price Range:** {format_price(zone['zone_low'])} - {format_price(zone['zone_high'])}")
+                    st.write(f"**Current Distance from Zone:** {format_percent(abs(zone['distance_pct']))}")
+                    st.write(f"**Rally Percentage After Formation:** {format_percent(zone['rally_pct'])}")
+                    st.write(f"**Consolidation Period:** {zone['strength']} weeks")
+
+                    if zone['distance_pct'] <= 0:
+                        st.success("✅ Price is currently INSIDE the demand zone")
+                    else:
+                        st.info("ℹ️ Price is near the demand zone (within tolerance)")
+
+            with col2:
+                indicators = selected_result.get('indicators', {})
+                if indicators:
+                    with st.expander("📊 Technical Indicators"):
+                        st.write(f"**RSI:** {indicators.get('rsi', 'N/A'):.1f}" if indicators.get('rsi') else "**RSI:** N/A")
+                        if indicators.get('rsi_signal'):
+                            rsi_color = "🔴" if indicators['rsi_signal'] == "Overbought" else "🟢" if indicators['rsi_signal'] == "Oversold" else "🟡"
+                            st.write(f"{rsi_color} {indicators['rsi_signal']}")
+
+                        st.write(f"**MACD Trend:** {indicators.get('macd_trend', 'N/A')}")
+
+                        if indicators.get('ma_50'):
+                            st.write(f"**50-Week MA:** {format_price(indicators['ma_50'])}")
+                            st.write(f"  {'✅ Above' if indicators.get('above_ma50') else '⬇️ Below'}")
+
+                        if indicators.get('ma_200'):
+                            st.write(f"**200-Week MA:** {format_price(indicators['ma_200'])}")
+                            st.write(f"  {'✅ Above' if indicators.get('above_ma200') else '⬇️ Below'}")
+
+                        if indicators.get('volume_ratio'):
+                            vol_ratio = indicators['volume_ratio']
+                            vol_emoji = "🔥" if vol_ratio > 2 else "📊"
+                            st.write(f"**Volume Ratio:** {vol_emoji} {vol_ratio:.2f}x")
 
 
 if __name__ == "__main__":

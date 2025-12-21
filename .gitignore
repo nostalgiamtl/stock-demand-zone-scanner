@@ -47,3 +47,4 @@ Thumbs.db
 *.csv
 *.xlsx
 data/
+last_scan.json
