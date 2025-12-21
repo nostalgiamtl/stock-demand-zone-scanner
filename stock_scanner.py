@@ -3,8 +3,15 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from scipy.signal import argrelextrema
-import pandas_ta as ta
 import config
+
+try:
+    import pandas_ta as ta
+    USE_PANDAS_TA = True
+except ImportError:
+    # Fallback to simple indicators if pandas-ta not available
+    from indicators_simple import calculate_indicators
+    USE_PANDAS_TA = False
 
 
 class DemandZoneScanner:
@@ -120,13 +127,19 @@ class DemandZoneScanner:
 
         return zones
 
-    def is_at_demand_zone(self, current_price, zones):
+    def is_at_demand_zone(self, current_price, zones, df):
         """
-        Check if current price is at or near any demand zone.
+        Check if current price is at or near any demand zone that previously held and broke out.
+
+        This identifies stocks that:
+        1. Had a support zone that held (didn't break down)
+        2. Broke out upward from that zone (validated support)
+        3. Have NOW pulled back to that same support level (buying opportunity)
 
         Args:
             current_price (float): Current stock price
             zones (list): List of demand zones
+            df (pd.DataFrame): Price data to verify the stock rallied away and came back
 
         Returns:
             dict: Information about the matched zone or None
@@ -134,12 +147,38 @@ class DemandZoneScanner:
         for zone in zones:
             zone_low = zone['zone_low']
             zone_high = zone['zone_high']
+            zone_mid = zone['zone_mid']
+            formed_date = zone['formed_date']
 
-            # Check if current price is within the zone (with tolerance)
+            # Check if current price is at/near the zone (within 5% above zone high)
+            # We want stocks AT support, not way above it
             lower_bound = zone_low * (1 - self.zone_tolerance)
-            upper_bound = zone_high * (1 + self.zone_tolerance)
+            upper_bound = zone_high * (1 + 0.05)  # Allow up to 5% above zone
 
             if lower_bound <= current_price <= upper_bound:
+                # Verify this zone is "old enough" (formed at least 4 weeks ago)
+                # This ensures the rally happened in the PAST, not currently happening
+                weeks_since_formation = (df.index[-1] - formed_date).days / 7
+
+                if weeks_since_formation < 4:
+                    # Zone too recent, skip it
+                    continue
+
+                # Check that price actually rallied away from the zone and came back
+                # Look at price action AFTER zone formation
+                zone_idx = df.index.get_loc(formed_date)
+                if zone_idx + 5 < len(df):
+                    # Get price data after zone formation
+                    prices_after = df.iloc[zone_idx + 1:]['High']
+                    max_price_after = prices_after.max()
+
+                    # Verify price went significantly higher (10%+) after zone formation
+                    rally_from_zone = ((max_price_after - zone_high) / zone_high) * 100
+
+                    if rally_from_zone < 10:
+                        # Price never really left the zone, skip it
+                        continue
+
                 # Calculate distance from zone
                 if current_price < zone_low:
                     distance_pct = ((zone_low - current_price) / current_price) * 100
@@ -151,7 +190,8 @@ class DemandZoneScanner:
                 return {
                     **zone,
                     'current_price': current_price,
-                    'distance_pct': distance_pct
+                    'distance_pct': distance_pct,
+                    'weeks_since_formation': round(weeks_since_formation, 1)
                 }
 
         return None
@@ -166,6 +206,10 @@ class DemandZoneScanner:
         Returns:
             dict: Technical indicators
         """
+        # Use simple fallback if pandas-ta not available
+        if not USE_PANDAS_TA:
+            return calculate_indicators(df)
+
         if df is None or len(df) < 50:
             return None
 
@@ -261,7 +305,7 @@ class DemandZoneScanner:
             return None
 
         current_price = df['Close'].iloc[-1]
-        matched_zone = self.is_at_demand_zone(current_price, zones)
+        matched_zone = self.is_at_demand_zone(current_price, zones, df)
 
         if matched_zone:
             # Calculate technical indicators
