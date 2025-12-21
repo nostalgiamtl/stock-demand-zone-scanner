@@ -2,10 +2,40 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from datetime import datetime
 from stock_scanner import DemandZoneScanner
 from utils import get_sp500_tickers, format_price, format_percent
 
 st.set_page_config(page_title="Stock Demand Zone Scanner", layout="wide", page_icon="📈")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_scan(lookback_years, zone_tolerance, cache_buster=None):
+    """
+    Cached version of the stock scan. Results are cached for 1 hour.
+
+    Args:
+        lookback_years (int): Number of years to look back
+        zone_tolerance (float): Tolerance for zone matching
+        cache_buster: Dummy parameter to force cache refresh
+
+    Returns:
+        tuple: (results, scan_timestamp)
+    """
+    scanner = DemandZoneScanner(
+        lookback_years=lookback_years,
+        zone_tolerance=zone_tolerance
+    )
+
+    tickers = get_sp500_tickers()
+
+    if not tickers:
+        return None, None
+
+    results = scanner.scan_multiple_tickers(tickers)
+    scan_timestamp = datetime.now()
+
+    return results, scan_timestamp
 
 
 def create_stock_chart(result):
@@ -145,55 +175,110 @@ def main():
         help="Minimum price increase after consolidation to qualify as demand zone"
     )
 
+    st.sidebar.markdown("---")
+
+    # Scan and refresh buttons
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        scan_button = st.button("🔍 Start Scan", type="primary", use_container_width=True)
+    with col2:
+        refresh_button = st.button("🔄 Refresh", help="Clear cache and get fresh data", use_container_width=True)
+
+    # Info about caching
+    with st.sidebar.expander("ℹ️ How Updates Work"):
+        st.markdown("""
+        **Data Caching:**
+        - Results are cached for 1 hour
+        - Rescans within 1 hour are instant
+        - Saves time and API calls
+
+        **Fresh Data:**
+        - Click 'Refresh' to clear cache
+        - Then 'Start Scan' for latest data
+        - Market data has ~15-20 min delay
+
+        **Best Practice:**
+        - Run scan once per hour max
+        - Use CSV export to save results
+        - Refresh only when market moves
+        """)
+
+    # Initialize cache buster in session state
+    if 'cache_buster' not in st.session_state:
+        st.session_state['cache_buster'] = 0
+
+    # Handle refresh button
+    if refresh_button:
+        st.session_state['cache_buster'] += 1
+        cached_scan.clear()
+        st.sidebar.success("Cache cleared! Click 'Start Scan' for fresh data.")
+
     # Scan button
-    if st.sidebar.button("🔍 Start Scan", type="primary"):
+    if scan_button:
         st.session_state['scan_started'] = True
         st.session_state['results'] = None
+        st.session_state['scan_timestamp'] = None
 
     # Initialize scanner
     if st.session_state.get('scan_started', False):
-        scanner = DemandZoneScanner(
-            lookback_years=lookback_years,
-            zone_tolerance=zone_tolerance
-        )
-
         # Progress tracking
         progress_bar = st.progress(0)
         status_text = st.empty()
 
-        # Fetch S&P 500 tickers
-        status_text.text("Fetching S&P 500 ticker list...")
-        tickers = get_sp500_tickers()
+        status_text.text("Starting scan... (This may take a few minutes for first scan)")
 
-        if not tickers:
-            st.error("Failed to fetch S&P 500 tickers. Please check your internet connection.")
+        try:
+            # Use cached scan
+            results, scan_timestamp = cached_scan(
+                lookback_years=lookback_years,
+                zone_tolerance=zone_tolerance,
+                cache_buster=st.session_state.get('cache_buster', 0)
+            )
+
+            progress_bar.progress(100)
+            status_text.empty()
+            progress_bar.empty()
+
+            if results is None:
+                st.error("Failed to fetch S&P 500 tickers. Please check your internet connection.")
+                st.session_state['scan_started'] = False
+                return
+
+            st.session_state['results'] = results
+            st.session_state['scan_timestamp'] = scan_timestamp
+            st.session_state['scan_started'] = False
+
+        except Exception as e:
+            st.error(f"Error during scan: {str(e)}")
+            progress_bar.empty()
+            status_text.empty()
             st.session_state['scan_started'] = False
             return
-
-        status_text.text(f"Found {len(tickers)} tickers. Starting scan...")
-
-        # Scan tickers
-        def update_progress(current, total, ticker):
-            progress_bar.progress(current / total)
-            status_text.text(f"Scanning {ticker}... ({current}/{total})")
-
-        results = scanner.scan_multiple_tickers(tickers, progress_callback=update_progress)
-
-        progress_bar.empty()
-        status_text.empty()
-
-        st.session_state['results'] = results
-        st.session_state['scan_started'] = False
 
     # Display results
     if st.session_state.get('results') is not None:
         results = st.session_state['results']
+        scan_timestamp = st.session_state.get('scan_timestamp')
 
         if not results:
             st.warning("No stocks found at demand zones with current settings. Try adjusting the parameters.")
             return
 
-        st.success(f"✅ Found {len(results)} stocks at demand zones!")
+        # Display success message with timestamp
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.success(f"✅ Found {len(results)} stocks at demand zones!")
+        with col2:
+            if scan_timestamp:
+                time_ago = datetime.now() - scan_timestamp
+                minutes_ago = int(time_ago.total_seconds() / 60)
+                if minutes_ago < 1:
+                    st.info("📅 Just now")
+                elif minutes_ago < 60:
+                    st.info(f"📅 {minutes_ago} min ago")
+                else:
+                    hours_ago = int(minutes_ago / 60)
+                    st.info(f"📅 {hours_ago}h ago")
 
         # Create results dataframe
         results_data = []
@@ -227,6 +312,17 @@ def main():
 
         # Display summary table
         st.subheader("📊 Results Summary")
+
+        # CSV export button
+        csv_data = df_results.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Results as CSV",
+            data=csv_data,
+            file_name=f"demand_zone_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            help="Download the scan results as a CSV file for further analysis"
+        )
+
         st.dataframe(
             df_results.style.format({
                 'Current Price': '${:.2f}',
