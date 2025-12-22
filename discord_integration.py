@@ -94,6 +94,15 @@ class DiscordNotifier:
                     inline=True
                 )
 
+            # Add chart commands below the stocks
+            if stocks_to_show:
+                chart_commands = " ".join([f"`/c {s['ticker']}`" for s in stocks_to_show])
+                embed.add_embed_field(
+                    name="📈 View Charts",
+                    value=f"Click to copy: {chart_commands}",
+                    inline=False
+                )
+
             # Add footer with remaining count if applicable
             if remaining_count > 0:
                 footer_text = f"Stock Scanner • {remaining_count} more stocks not shown - check the website for full list"
