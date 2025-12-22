@@ -239,7 +239,7 @@ def main():
     if enable_discord or webhook_from_secrets:
         st.sidebar.markdown("**Alert Types:**")
         alert_new_stocks = st.sidebar.checkbox("New stocks entering zones", value=True)
-        alert_price_signals = st.sidebar.checkbox("Price alerts (RSI/MACD)", value=True)
+        alert_price_signals = st.sidebar.checkbox("Price alerts (RSI/MACD)", value=False)
 
         if not webhook_from_secrets:
             with st.sidebar.expander("📘 How to get Webhook URL"):
@@ -311,13 +311,19 @@ def main():
                         if success:
                             st.sidebar.success(f"🔔 Sent {len(new_stocks)} new stock(s) to Discord!")
 
-                # Price alerts
+                # Price alerts (disabled by default to prevent spam)
                 if alert_price_signals:
                     alerts = detect_price_alerts(results)
-                    for ticker, alert_type, details in alerts[:5]:  # Limit to 5
+                    # Only send top 3 alerts to prevent spam
+                    alerts_to_send = alerts[:3] if len(alerts) > 5 else alerts
+                    for ticker, alert_type, details in alerts_to_send:
                         notifier.send_price_alert(ticker, alert_type, details)
                     if alerts:
-                        st.sidebar.info(f"⚠️ Sent {len(alerts)} price alert(s)")
+                        remaining = len(alerts) - len(alerts_to_send)
+                        msg = f"⚠️ Sent {len(alerts_to_send)} price alert(s)"
+                        if remaining > 0:
+                            msg += f" ({remaining} more not sent)"
+                        st.sidebar.info(msg)
 
         except Exception as e:
             st.error(f"Error during scan: {str(e)}")
