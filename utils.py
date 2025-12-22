@@ -3,67 +3,278 @@ import pandas as pd
 
 def get_sp500_tickers():
     """
-    Get S&P 500 ticker symbols.
-    Uses a hardcoded list of all 502 S&P 500 stocks.
+    Get all tickers (S&P 500 + NASDAQ combined).
+    Total: 2,644 unique stocks.
 
     Returns:
-        list: List of S&P 500 ticker symbols
+        list: List of stock ticker symbols
     """
-    # Complete S&P 500 ticker list (502 stocks)
-    tickers = [
-        'AAPL', 'ABBV', 'ABNB', 'ABT', 'ACGL', 'ACN', 'ADBE', 'ADI', 'ADM', 'ADP',
-        'ADSK', 'AEE', 'AEP', 'AES', 'AFL', 'AIG', 'AIZ', 'AJG', 'AKAM', 'ALB',
-        'ALGN', 'ALL', 'ALLE', 'AMAT', 'AMCR', 'AMD', 'AME', 'AMGN', 'AMP', 'AMT',
-        'AMZN', 'ANET', 'AON', 'AOS', 'APA', 'APD', 'APH', 'APO', 'APP', 'APTV',
-        'ARE', 'ARES', 'ATO', 'AVB', 'AVGO', 'AVY', 'AWK', 'AXON', 'AXP', 'AZO',
-        'BA', 'BAC', 'BALL', 'BAX', 'BBY', 'BDX', 'BEN', 'BF.B', 'BG', 'BIIB',
-        'BK', 'BKNG', 'BKR', 'BLDR', 'BLK', 'BMY', 'BR', 'BRK.B', 'BRO', 'BSX',
-        'BX', 'BXP', 'C', 'CAG', 'CAH', 'CARR', 'CAT', 'CB', 'CBOE', 'CBRE',
-        'CCI', 'CCL', 'CDNS', 'CDW', 'CEG', 'CF', 'CFG', 'CHD', 'CHRW', 'CHTR',
-        'CI', 'CINF', 'CL', 'CLX', 'CMCSA', 'CME', 'CMG', 'CMI', 'CMS', 'CNC',
-        'CNP', 'COF', 'COIN', 'COO', 'COP', 'COR', 'COST', 'CPAY', 'CPB', 'CPRT',
-        'CPT', 'CRL', 'CRM', 'CRWD', 'CSCO', 'CSGP', 'CSX', 'CTAS', 'CTRA', 'CTSH',
-        'CTVA', 'CVS', 'CVX', 'D', 'DAL', 'DASH', 'DAY', 'DD', 'DDOG', 'DE',
-        'DECK', 'DELL', 'DG', 'DGX', 'DHI', 'DHR', 'DIS', 'DLR', 'DLTR', 'DOC',
-        'DOV', 'DOW', 'DPZ', 'DRI', 'DTE', 'DUK', 'DVA', 'DVN', 'DXCM', 'EA',
-        'EBAY', 'ECL', 'ED', 'EFX', 'EG', 'EIX', 'EL', 'ELV', 'EME', 'EMR',
-        'EOG', 'EPAM', 'EQIX', 'EQR', 'EQT', 'ERIE', 'ES', 'ESS', 'ETN', 'ETR',
-        'EVRG', 'EW', 'EXC', 'EXE', 'EXPD', 'EXPE', 'EXR', 'F', 'FANG', 'FAST',
-        'FCX', 'FDS', 'FDX', 'FE', 'FFIV', 'FICO', 'FIS', 'FISV', 'FITB', 'FOX',
-        'FOXA', 'FRT', 'FSLR', 'FTNT', 'FTV', 'GD', 'GDDY', 'GE', 'GEHC', 'GEN',
-        'GEV', 'GILD', 'GIS', 'GL', 'GLW', 'GM', 'GNRC', 'GOOG', 'GOOGL', 'GPC',
-        'GPN', 'GRMN', 'GS', 'GWW', 'HAL', 'HAS', 'HBAN', 'HCA', 'HD', 'HIG',
-        'HII', 'HLT', 'HOLX', 'HON', 'HOOD', 'HPE', 'HPQ', 'HRL', 'HSIC', 'HST',
-        'HSY', 'HUBB', 'HUM', 'HWM', 'IBKR', 'IBM', 'ICE', 'IDXX', 'IEX', 'IFF',
-        'INCY', 'INTC', 'INTU', 'INVH', 'IP', 'IQV', 'IR', 'IRM', 'ISRG', 'IT',
-        'ITW', 'IVZ', 'J', 'JBHT', 'JBL', 'JCI', 'JKHY', 'JNJ', 'JPM', 'KDP',
-        'KEY', 'KEYS', 'KHC', 'KIM', 'KKR', 'KLAC', 'KMB', 'KMI', 'KO', 'KR',
-        'KVUE', 'L', 'LDOS', 'LEN', 'LH', 'LHX', 'LII', 'LIN', 'LKQ', 'LLY',
-        'LMT', 'LNT', 'LOW', 'LRCX', 'LULU', 'LUV', 'LVS', 'LW', 'LYB', 'LYV',
-        'MA', 'MAA', 'MAR', 'MAS', 'MCD', 'MCHP', 'MCK', 'MCO', 'MDLZ', 'MDT',
-        'MET', 'META', 'MGM', 'MHK', 'MKC', 'MLM', 'MMC', 'MMM', 'MNST', 'MO',
-        'MOH', 'MOS', 'MPC', 'MPWR', 'MRK', 'MRNA', 'MS', 'MSCI', 'MSFT', 'MSI',
-        'MTB', 'MTCH', 'MTD', 'MU', 'NCLH', 'NDAQ', 'NDSN', 'NEE', 'NEM', 'NFLX',
-        'NI', 'NKE', 'NOC', 'NOW', 'NRG', 'NSC', 'NTAP', 'NTRS', 'NUE', 'NVDA',
-        'NVR', 'NWS', 'NWSA', 'NXPI', 'O', 'ODFL', 'OKE', 'OMC', 'ON', 'ORCL',
-        'ORLY', 'OTIS', 'OXY', 'PANW', 'PAYC', 'PAYX', 'PCAR', 'PCG', 'PEG', 'PEP',
-        'PFE', 'PFG', 'PG', 'PGR', 'PH', 'PHM', 'PKG', 'PLD', 'PLTR', 'PM',
-        'PNC', 'PNR', 'PNW', 'PODD', 'POOL', 'PPG', 'PPL', 'PRU', 'PSA', 'PSKY',
-        'PSX', 'PTC', 'PWR', 'PYPL', 'Q', 'QCOM', 'RCL', 'REG', 'REGN', 'RF',
-        'RJF', 'RL', 'RMD', 'ROK', 'ROL', 'ROP', 'ROST', 'RSG', 'RTX', 'RVTY',
-        'SBAC', 'SBUX', 'SCHW', 'SHW', 'SJM', 'SLB', 'SMCI', 'SNA', 'SNDK', 'SNPS',
-        'SO', 'SOLS', 'SOLV', 'SPG', 'SPGI', 'SRE', 'STE', 'STLD', 'STT', 'STX',
-        'STZ', 'SW', 'SWK', 'SWKS', 'SYF', 'SYK', 'SYY', 'T', 'TAP', 'TDG',
-        'TDY', 'TECH', 'TEL', 'TER', 'TFC', 'TGT', 'TJX', 'TKO', 'TMO', 'TMUS',
-        'TPL', 'TPR', 'TRGP', 'TRMB', 'TROW', 'TRV', 'TSCO', 'TSLA', 'TSN', 'TT',
-        'TTD', 'TTWO', 'TXN', 'TXT', 'TYL', 'UAL', 'UBER', 'UDR', 'UHS', 'ULTA',
-        'UNH', 'UNP', 'UPS', 'URI', 'USB', 'V', 'VICI', 'VLO', 'VLTO', 'VMC',
-        'VRSK', 'VRSN', 'VRTX', 'VST', 'VTR', 'VTRS', 'VZ', 'WAB', 'WAT', 'WBD',
-        'WDAY', 'WDC', 'WEC', 'WELL', 'WFC', 'WM', 'WMB', 'WMT', 'WRB', 'WSM',
-        'WST', 'WTW', 'WY', 'WYNN', 'XEL', 'XOM', 'XYL', 'XYZ', 'YUM', 'ZBH',
-        'ZBRA', 'ZTS'
-    ]
-    print(f"Loaded {len(tickers)} S&P 500 tickers")
+    tickers = ['AAL', 'AAME', 'AAOI', 'AAON', 'AAPL', 'AARD', 'ABAT', 'ABBV', 'ABEO', 'ABL'] + \
+        ['ABNB', 'ABOS', 'ABP', 'ABSI', 'ABT', 'ABTC', 'ABUS', 'ABVC', 'ABVE', 'ACAD'] + \
+        ['ACDC', 'ACET', 'ACFN', 'ACGL', 'ACHC', 'ACIC', 'ACIU', 'ACIW', 'ACLS', 'ACLX'] + \
+        ['ACMR', 'ACN', 'ACNB', 'ACNT', 'ACOG', 'ACON', 'ACRS', 'ACRV', 'ACT', 'ACTG'] + \
+        ['ACXP', 'ADAM', 'ADBE', 'ADEA', 'ADGM', 'ADI', 'ADIL', 'ADM', 'ADMA', 'ADP'] + \
+        ['ADPT', 'ADSK', 'ADTN', 'ADTX', 'ADUR', 'ADUS', 'ADV', 'ADVB', 'ADVM', 'AEBI'] + \
+        ['AEE', 'AEHR', 'AEI', 'AEIS', 'AEMD', 'AEP', 'AES', 'AEVA', 'AEYE', 'AFBI'] + \
+        ['AFCG', 'AFL', 'AFRM', 'AGAE', 'AGEN', 'AGH', 'AGIO', 'AGNC', 'AGYS', 'AHCO'] + \
+        ['AIFF', 'AIG', 'AIHS', 'AIMD', 'AIOT', 'AIP', 'AIRE', 'AIRG', 'AIRJ', 'AIRO'] + \
+        ['AIRS', 'AIRT', 'AISP', 'AIXC', 'AIZ', 'AJG', 'AKAM', 'AKBA', 'AKRO', 'ALAB'] + \
+        ['ALB', 'ALBT', 'ALCO', 'ALDX', 'ALEC', 'ALGM', 'ALGN', 'ALGT', 'ALHC', 'ALKT'] + \
+        ['ALL', 'ALLE', 'ALLO', 'ALMS', 'ALMU', 'ALNT', 'ALNY', 'ALOT', 'ALRM', 'ALRS'] + \
+        ['ALT', 'ALTI', 'ALTO', 'ALTS', 'ALXO', 'ALZN', 'AMAL', 'AMAT', 'AMCR', 'AMCX'] + \
+        ['AMD', 'AME', 'AMGN', 'AMIX', 'AMKR', 'AMLX', 'AMOD', 'AMP', 'AMPG', 'AMPH'] + \
+        ['AMPL', 'AMRK', 'AMRX', 'AMSC', 'AMSF', 'AMST', 'AMT', 'AMTX', 'AMWD', 'AMZN'] + \
+        ['ANAB', 'ANDE', 'ANEB', 'ANET', 'ANGI', 'ANGO', 'ANIK', 'ANIP', 'ANIX', 'ANNA'] + \
+        ['ANTX', 'AON', 'AOS', 'AOUT', 'APA', 'APD', 'APEI', 'APGE', 'APH', 'APLD'] + \
+        ['APLS', 'APLT', 'APO', 'APOG', 'APP', 'APPF', 'APPN', 'APPS', 'APRE', 'APTV'] + \
+        ['APVO', 'APYX', 'AQB', 'AQMS', 'AQST', 'ARAI', 'ARAY', 'ARCB', 'ARCT', 'ARDX'] + \
+        ['ARE', 'AREB', 'AREC', 'ARES', 'ARHS', 'ARKO', 'ARKR', 'AROW', 'ARQ', 'ARRY'] + \
+        ['ARTL', 'ARTNA', 'ARTV', 'ARTW', 'ARVN', 'ARWR', 'ASBP', 'ASLE', 'ASMB', 'ASNS'] + \
+        ['ASO', 'ASPI', 'ASPS', 'ASRT', 'ASRV', 'ASST', 'ASTC', 'ASTE', 'ASTH', 'ASTI'] + \
+        ['ASTS', 'ASUR', 'ASYS', 'ATEC', 'ATER', 'ATEX', 'ATHA', 'ATHR', 'ATLC', 'ATLN'] + \
+        ['ATLO', 'ATLX', 'ATNI', 'ATO', 'ATOM', 'ATON', 'ATOS', 'ATPC', 'ATRA', 'ATRC'] + \
+        ['ATRO', 'ATXG', 'ATXS', 'ATYR', 'AUBN', 'AUID', 'AUR', 'AURA', 'AUUD', 'AVAH'] + \
+        ['AVAV', 'AVB', 'AVBH', 'AVBP', 'AVGO', 'AVNW', 'AVO', 'AVPT', 'AVR', 'AVT'] + \
+        ['AVTX', 'AVXL', 'AVY', 'AWK', 'AWRE', 'AXGN', 'AXON', 'AXP', 'AXSM', 'AXTI'] + \
+        ['AYTU', 'AZO', 'AZTA', 'BA', 'BAC', 'BAER', 'BAFN', 'BALL', 'BAND', 'BANF'] + \
+        ['BANR', 'BATRA', 'BATRK', 'BAX', 'BBCP', 'BBGI', 'BBIO', 'BBLG', 'BBNX', 'BBOT'] + \
+        ['BBSI', 'BBY', 'BCAB', 'BCAL', 'BCAX', 'BCBP', 'BCDA', 'BCG', 'BCML', 'BCPC'] + \
+        ['BCRX', 'BDSX', 'BDTX', 'BDX', 'BEAM', 'BEAT', 'BEEM', 'BEEP', 'BELFA', 'BELFB'] + \
+        ['BEN', 'BENF', 'BETR', 'BF.B', 'BFC', 'BFIN', 'BFRG', 'BFRI', 'BFST', 'BG'] + \
+        ['BGC', 'BGMS', 'BHF', 'BHRB', 'BHST', 'BIAF', 'BIIB', 'BIOA', 'BIRD', 'BITF'] + \
+        ['BJDX', 'BJRI', 'BK', 'BKNG', 'BKR', 'BKYI', 'BL', 'BLBD', 'BLBX', 'BLDR'] + \
+        ['BLFS', 'BLFY', 'BLIN', 'BLK', 'BLKB', 'BLMN', 'BLNE', 'BLNK', 'BLZE', 'BMEA'] + \
+        ['BMRA', 'BMRC', 'BMRN', 'BMY', 'BNAI', 'BNBX', 'BNC', 'BNGO', 'BNKK', 'BNTC'] + \
+        ['BNZI', 'BODI', 'BOF', 'BOKF', 'BOLD', 'BOLT', 'BOOM', 'BOTJ', 'BOXL', 'BPOP'] + \
+        ['BPRN', 'BR', 'BRCB', 'BRFH', 'BRID', 'BRK.B', 'BRKR', 'BRLT', 'BRO', 'BRTX'] + \
+        ['BRY', 'BRZE', 'BSBK', 'BSET', 'BSLK', 'BSRR', 'BSX', 'BSY', 'BTAI', 'BTBD'] + \
+        ['BTCS', 'BTM', 'BTQ', 'BTSG', 'BUSE', 'BVFL', 'BVS', 'BWB', 'BWEN', 'BWFG'] + \
+        ['BWIN', 'BWMN', 'BX', 'BXP', 'BYFC', 'BYRN', 'BZAI', 'BZFD', 'C', 'CABA'] + \
+        ['CABR', 'CAC', 'CACC', 'CADL', 'CAG', 'CAH', 'CAI', 'CAKE', 'CALC', 'CALM'] + \
+        ['CAMP', 'CAPR', 'CAPS', 'CAR', 'CARE', 'CARG', 'CARL', 'CARR', 'CART', 'CARV'] + \
+        ['CASH', 'CASS', 'CASY', 'CAT', 'CATY', 'CB', 'CBAT', 'CBC', 'CBFV', 'CBIO'] + \
+        ['CBK', 'CBLL', 'CBNK', 'CBOE', 'CBRE', 'CBRL', 'CBSH', 'CBUS', 'CCAP', 'CCB'] + \
+        ['CCBG', 'CCC', 'CCCC', 'CCI', 'CCL', 'CCLD', 'CCNE', 'CCOI', 'CCRN', 'CCSI'] + \
+        ['CDLX', 'CDNA', 'CDNS', 'CDT', 'CDTX', 'CDW', 'CDXS', 'CDZI', 'CECO', 'CEG'] + \
+        ['CELC', 'CELH', 'CELU', 'CELZ', 'CENN', 'CENT', 'CENTA', 'CENX', 'CERS', 'CERT'] + \
+        ['CETX', 'CETY', 'CEVA', 'CF', 'CFBK', 'CFFI', 'CFFN', 'CFG', 'CFLT', 'CG'] + \
+        ['CGEM', 'CGNX', 'CGTX', 'CHCI', 'CHCO', 'CHD', 'CHDN', 'CHEF', 'CHMG', 'CHRD'] + \
+        ['CHRS', 'CHRW', 'CHTR', 'CHYM', 'CI', 'CIFR', 'CIIT', 'CINF', 'CING', 'CISO'] + \
+        ['CISS', 'CIVB', 'CJMB', 'CL', 'CLAR', 'CLBK', 'CLDX', 'CLFD', 'CLIR', 'CLMB'] + \
+        ['CLMT', 'CLNE', 'CLNN', 'CLPS', 'CLPT', 'CLRB', 'CLRO', 'CLSD', 'CLSK', 'CLX'] + \
+        ['CLYM', 'CMCO', 'CMCSA', 'CMCT', 'CME', 'CMG', 'CMI', 'CMPX', 'CMRC', 'CMS'] + \
+        ['CMTL', 'CNC', 'CNDT', 'CNET', 'CNOB', 'CNP', 'CNSP', 'CNTX', 'CNTY', 'CNVS'] + \
+        ['CNXC', 'CNXN', 'COCH', 'COCO', 'COCP', 'CODX', 'COEP', 'COF', 'COFS', 'COGT'] + \
+        ['COHU', 'COIN', 'COKE', 'COLB', 'COLL', 'COLM', 'COMM', 'COO', 'COP', 'COR'] + \
+        ['CORT', 'CORZ', 'COSM', 'COST', 'COYA', 'CPAY', 'CPB', 'CPBI', 'CPHC', 'CPIX'] + \
+        ['CPRT', 'CPRX', 'CPSH', 'CPSS', 'CPT', 'CRAI', 'CRBP', 'CRBU', 'CRDF', 'CREG'] + \
+        ['CRESY', 'CREX', 'CRIS', 'CRL', 'CRM', 'CRMD', 'CRMT', 'CRNC', 'CRNX', 'CROX'] + \
+        ['CRSR', 'CRUS', 'CRVL', 'CRVO', 'CRVS', 'CRWD', 'CRWS', 'CRWV', 'CSAI', 'CSBR'] + \
+        ['CSCO', 'CSGP', 'CSGS', 'CSPI', 'CSWC', 'CSX', 'CTAS', 'CTBI', 'CTKB', 'CTLP'] + \
+        ['CTMX', 'CTNT', 'CTOR', 'CTRA', 'CTRN', 'CTSH', 'CTSO', 'CTVA', 'CTXR', 'CUE'] + \
+        ['CURI', 'CURX', 'CV', 'CVBF', 'CVCO', 'CVGI', 'CVGW', 'CVKD', 'CVLT', 'CVRX'] + \
+        ['CVS', 'CVV', 'CVX', 'CWBC', 'CWD', 'CWST', 'CXAI', 'CXDO', 'CYCN', 'CYCU'] + \
+        ['CYPH', 'CYRX', 'CYTK', 'CZFS', 'CZNC', 'CZR', 'CZWI', 'D', 'DAIC', 'DAIO'] + \
+        ['DAKT', 'DAL', 'DARE', 'DASH', 'DAVE', 'DAWN', 'DAY', 'DBGI', 'DBX', 'DCGO'] + \
+        ['DCOM', 'DCTH', 'DD', 'DDOG', 'DE', 'DECK', 'DEFT', 'DELL', 'DENN', 'DERM'] + \
+        ['DEVS', 'DFDV', 'DFLI', 'DG', 'DGICA', 'DGICB', 'DGII', 'DGLY', 'DGX', 'DH'] + \
+        ['DHI', 'DHIL', 'DHR', 'DIBS', 'DIOD', 'DIS', 'DJCO', 'DJT', 'DKNG', 'DLHC'] + \
+        ['DLPN', 'DLR', 'DLTH', 'DLTR', 'DMAC', 'DMRC', 'DNLI', 'DNTH', 'DNUT', 'DOC'] + \
+        ['DOCU', 'DOGZ', 'DOMH', 'DOMO', 'DORM', 'DOV', 'DOW', 'DPZ', 'DRCT', 'DRI'] + \
+        ['DRIO', 'DRMA', 'DRS', 'DRVN', 'DSGN', 'DSGR', 'DSGX', 'DTE', 'DTI', 'DTIL'] + \
+        ['DTSS', 'DTST', 'DUK', 'DUOL', 'DUOT', 'DVA', 'DVAX', 'DVLT', 'DVN', 'DWSN'] + \
+        ['DWTX', 'DXCM', 'DXLG', 'DXPE', 'DYAI', 'DYN', 'EA', 'EBAY', 'EBC', 'EBMT'] + \
+        ['ECBK', 'ECDA', 'ECL', 'ECOR', 'ECPG', 'ED', 'EDBL', 'EDIT', 'EDUC', 'EEFT'] + \
+        ['EEIQ', 'EFOI', 'EFSC', 'EFSI', 'EFX', 'EG', 'EGAN', 'EGBN', 'EHLD', 'EHTH'] + \
+        ['EIX', 'EKSO', 'EL', 'ELAB', 'ELBM', 'ELDN', 'ELE', 'ELSE', 'ELTX', 'ELUT'] + \
+        ['ELV', 'ELVN', 'ELWT', 'EMBC', 'EME', 'EML', 'EMR', 'ENGN', 'ENPH', 'ENSC'] + \
+        ['ENSG', 'ENTA', 'ENTG', 'ENTO', 'ENVB', 'ENVX', 'EOG', 'EOLS', 'EOSE', 'EPAM'] + \
+        ['EPRX', 'EQ', 'EQIX', 'EQR', 'EQT', 'ERAS', 'ERIE', 'ERII', 'ERNA', 'ES'] + \
+        ['ESCA', 'ESEA', 'ESHA', 'ESLA', 'ESOA', 'ESPR', 'ESQ', 'ESS', 'ETHZ', 'ETN'] + \
+        ['ETON', 'ETR', 'ETS', 'EU', 'EVCM', 'EVER', 'EVGO', 'EVGOW', 'EVLV', 'EVOK'] + \
+        ['EVRG', 'EW', 'EWBC', 'EWCZ', 'EWTX', 'EXAS', 'EXC', 'EXE', 'EXEL', 'EXFY'] + \
+        ['EXLS', 'EXOZ', 'EXPD', 'EXPE', 'EXPI', 'EXPO', 'EXR', 'EXTR', 'EYE', 'EYPT'] + \
+        ['EZPW', 'F', 'FA', 'FANG', 'FARM', 'FAST', 'FAT', 'FATBB', 'FATE', 'FBIO'] + \
+        ['FBIZ', 'FBLA', 'FBLG', 'FBNC', 'FBRX', 'FBYD', 'FCAP', 'FCBC', 'FCCO', 'FCEL'] + \
+        ['FCFS', 'FCNCA', 'FCUV', 'FCX', 'FDBC', 'FDMT', 'FDS', 'FDSB', 'FDX', 'FE'] + \
+        ['FEAM', 'FEIM', 'FELE', 'FEMY', 'FENC', 'FFAI', 'FFBC', 'FFIC', 'FFIN', 'FFIV'] + \
+        ['FGBI', 'FGEN', 'FGNX', 'FHB', 'FHTX', 'FIBK', 'FICO', 'FIEE', 'FIGR', 'FINW'] + \
+        ['FIP', 'FIS', 'FISI', 'FISV', 'FITB', 'FIVE', 'FIVN', 'FIZZ', 'FLD', 'FLGC'] + \
+        ['FLGT', 'FLL', 'FLNC', 'FLNT', 'FLUX', 'FLWS', 'FLXS', 'FLY', 'FLYE', 'FLYW'] + \
+        ['FMAO', 'FMBH', 'FMNB', 'FNKO', 'FNLC', 'FNWB', 'FOLD', 'FONR', 'FORA', 'FORM'] + \
+        ['FORR', 'FOSL', 'FOX', 'FOXA', 'FOXF', 'FOXX', 'FRAF', 'FRBA', 'FRD', 'FRHC'] + \
+        ['FRME', 'FRMI', 'FRPH', 'FRPT', 'FRSH', 'FRST', 'FRT', 'FSBC', 'FSBW', 'FSEA'] + \
+        ['FSFG', 'FSLR', 'FSTR', 'FSUN', 'FTAI', 'FTCI', 'FTDR', 'FTEK', 'FTFT', 'FTHM'] + \
+        ['FTLF', 'FTNT', 'FTRE', 'FTV', 'FULC', 'FULT', 'FUNC', 'FUSB', 'FVCB', 'FWDI'] + \
+        ['FWONA', 'FWONK', 'FWRD', 'FWRG', 'FXNC', 'FYBR', 'GABC', 'GAIA', 'GALT', 'GANX'] + \
+        ['GBFH', 'GCBC', 'GCMG', 'GCTK', 'GD', 'GDC', 'GDDY', 'GDEN', 'GDRX', 'GDYN'] + \
+        ['GE', 'GEG', 'GEHC', 'GEMI', 'GEN', 'GENK', 'GEOS', 'GERN', 'GEV', 'GEVO'] + \
+        ['GH', 'GIFI', 'GIFT', 'GIII', 'GILD', 'GIS', 'GITS', 'GL', 'GLBS', 'GLBZ'] + \
+        ['GLDD', 'GLIBA', 'GLIBK', 'GLOO', 'GLPI', 'GLTO', 'GLUE', 'GLW', 'GM', 'GMGI'] + \
+        ['GNLN', 'GNLX', 'GNPX', 'GNRC', 'GNSS', 'GNTX', 'GO', 'GOCO', 'GOGO', 'GOOG'] + \
+        ['GOOGL', 'GOSS', 'GOVX', 'GPC', 'GPN', 'GPRE', 'GPRO', 'GRAL', 'GRCE', 'GREE'] + \
+        ['GRI', 'GRMN', 'GRNQ', 'GROW', 'GRPN', 'GRWG', 'GS', 'GSAT', 'GSBC', 'GSHD'] + \
+        ['GSIT', 'GT', 'GTBP', 'GTIM', 'GTLB', 'GTM', 'GTX', 'GUTS', 'GWAV', 'GWW'] + \
+        ['GXAI', 'GYRE', 'GYRO', 'HAFC', 'HAIN', 'HAL', 'HALO', 'HAS', 'HBAN', 'HBCP'] + \
+        ['HBIO', 'HBNC', 'HBT', 'HCA', 'HCKT', 'HCSG', 'HCTI', 'HCWB', 'HD', 'HDSN'] + \
+        ['HELE', 'HFBL', 'HFFG', 'HFWA', 'HGBL', 'HHS', 'HIFS', 'HIG', 'HIHO', 'HII'] + \
+        ['HIND', 'HIT', 'HLIT', 'HLMN', 'HLNE', 'HLT', 'HMR', 'HNNA', 'HNRG', 'HNST'] + \
+        ['HNVR', 'HOFT', 'HOLX', 'HON', 'HOOD', 'HOPE', 'HOTH', 'HOWL', 'HPE', 'HPK'] + \
+        ['HPQ', 'HQI', 'HQY', 'HRL', 'HRMY', 'HROW', 'HRTX', 'HRZN', 'HSCS', 'HSDT'] + \
+        ['HSIC', 'HSII', 'HST', 'HSTM', 'HSY', 'HTBK', 'HTCR', 'HTFL', 'HTLD', 'HTO'] + \
+        ['HTZ', 'HUBB', 'HUBG', 'HUM', 'HUMA', 'HURA', 'HURC', 'HURN', 'HUT', 'HWBK'] + \
+        ['HWC', 'HWH', 'HWKN', 'HWM', 'HYFM', 'HYFT', 'HYMC', 'HYPD', 'HYPR', 'IAC'] + \
+        ['IART', 'IAS', 'IBAC', 'IBCP', 'IBIO', 'IBKR', 'IBM', 'IBOC', 'IBRX', 'ICCC'] + \
+        ['ICE', 'ICFI', 'ICMB', 'ICU', 'ICUI', 'IDAI', 'IDCC', 'IDN', 'IDXX', 'IDYA'] + \
+        ['IESC', 'IEX', 'IFF', 'IFRX', 'IHRT', 'III', 'IIIV', 'IKT', 'ILLR', 'ILMN'] + \
+        ['IMA', 'IMDX', 'IMG', 'IMKTA', 'IMMR', 'IMMX', 'IMNM', 'IMNN', 'IMRX', 'IMSR'] + \
+        ['IMUX', 'IMVT', 'IMXI', 'INAB', 'INBK', 'INBS', 'INBX', 'INCY', 'INDB', 'INDI'] + \
+        ['INDP', 'INGN', 'INHD', 'INKT', 'INNV', 'INO', 'INOD', 'INSE', 'INSG', 'INSM'] + \
+        ['INTA', 'INTC', 'INTG', 'INTS', 'INTU', 'INTZ', 'INV', 'INVA', 'INVE', 'INVH'] + \
+        ['IOBT', 'IONS', 'IOSP', 'IOVA', 'IP', 'IPAR', 'IPDN', 'IPGP', 'IPM', 'IPSC'] + \
+        ['IPST', 'IPW', 'IPWR', 'IQST', 'IQV', 'IR', 'IRBT', 'IRD', 'IRDM', 'IRIX'] + \
+        ['IRM', 'IRMD', 'IRON', 'IROQ', 'IRTC', 'IRWD', 'ISPC', 'ISPO', 'ISPR', 'ISRG'] + \
+        ['ISSC', 'ISTR', 'IT', 'ITIC', 'ITRI', 'ITW', 'IVDA', 'IVF', 'IVP', 'IVVD'] + \
+        ['IVZ', 'IXHL', 'IZEA', 'J', 'JACK', 'JAGX', 'JAKK', 'JAMF', 'JANX', 'JBHT'] + \
+        ['JBIO', 'JBL', 'JBLU', 'JBSS', 'JCAP', 'JCI', 'JFB', 'JJSF', 'JKHY', 'JMSB'] + \
+        ['JNJ', 'JOUT', 'JPM', 'JRSH', 'JRVR', 'JSPR', 'JTAI', 'JUNS', 'JVA', 'JXG'] + \
+        ['JYNT', 'KALA', 'KALU', 'KALV', 'KAVL', 'KDK', 'KDP', 'KE', 'KELYA', 'KELYB'] + \
+        ['KEQU', 'KEY', 'KEYS', 'KFFB', 'KG', 'KHC', 'KIDS', 'KIDZ', 'KIM', 'KINS'] + \
+        ['KKR', 'KLAC', 'KLIC', 'KLRS', 'KLTO', 'KLTR', 'KLXE', 'KMB', 'KMI', 'KMTS'] + \
+        ['KO', 'KOD', 'KOPN', 'KOSS', 'KPLT', 'KPRX', 'KPTI', 'KR', 'KRMD', 'KRNY'] + \
+        ['KRRO', 'KRT', 'KRUS', 'KRYS', 'KSCP', 'KTCC', 'KTOS', 'KTTA', 'KURA', 'KVHI'] + \
+        ['KVUE', 'KYMR', 'KYTX', 'KZR', 'L', 'LAB', 'LAKE', 'LAMR', 'LAND', 'LARK'] + \
+        ['LASE', 'LASR', 'LAUR', 'LAZR', 'LBRDA', 'LBRDK', 'LBRX', 'LCID', 'LCNB', 'LCUT'] + \
+        ['LDOS', 'LDWY', 'LE', 'LEDS', 'LEE', 'LEGH', 'LEN', 'LENZ', 'LESL', 'LEXX'] + \
+        ['LFCR', 'LFMD', 'LFST', 'LFUS', 'LFVN', 'LGIH', 'LGND', 'LH', 'LHX', 'LIDR'] + \
+        ['LIEN', 'LIF', 'LII', 'LILA', 'LILAK', 'LIMN', 'LIN', 'LINC', 'LIND', 'LINE'] + \
+        ['LINK', 'LIQT', 'LITE', 'LITS', 'LIVE', 'LIXT', 'LKFN', 'LKQ', 'LLY', 'LLYVA'] + \
+        ['LLYVK', 'LMAT', 'LMB', 'LMFA', 'LMNR', 'LMT', 'LNAI', 'LNKB', 'LNSR', 'LNT'] + \
+        ['LNTH', 'LNZA', 'LOAN', 'LOCO', 'LOOP', 'LOPE', 'LOVE', 'LOW', 'LPCN', 'LPLA'] + \
+        ['LPRO', 'LPSN', 'LPTH', 'LQDA', 'LQDT', 'LRCX', 'LRHC', 'LRMR', 'LSAK', 'LSBK'] + \
+        ['LSCC', 'LSH', 'LSTA', 'LSTR', 'LTBR', 'LTRN', 'LTRX', 'LUCD', 'LUCY', 'LULU'] + \
+        ['LUNG', 'LUNR', 'LUV', 'LVLU', 'LVO', 'LVS', 'LW', 'LWAY', 'LWLG', 'LXEO'] + \
+        ['LXRX', 'LYB', 'LYEL', 'LYFT', 'LYRA', 'LYTS', 'LYV', 'LZ', 'MA', 'MAA'] + \
+        ['MAMA', 'MAMO', 'MANH', 'MAPS', 'MAR', 'MARA', 'MAS', 'MASI', 'MASS', 'MAT'] + \
+        ['MATW', 'MAYS', 'MAZE', 'MBBC', 'MBCN', 'MBIN', 'MBIO', 'MBLY', 'MBOT', 'MBRX'] + \
+        ['MBUU', 'MBWM', 'MBX', 'MCBS', 'MCD', 'MCFT', 'MCHB', 'MCHP', 'MCHX', 'MCK'] + \
+        ['MCO', 'MCRB', 'MCRI', 'MCW', 'MDAI', 'MDB', 'MDCX', 'MDGL', 'MDIA', 'MDLZ'] + \
+        ['MDRR', 'MDT', 'MDXG', 'MEDP', 'MEHA', 'MELI', 'MEOH', 'MERC', 'MET', 'META'] + \
+        ['METC', 'METCB', 'MFIN', 'MGEE', 'MGM', 'MGNI', 'MGNX', 'MGPI', 'MGRC', 'MGRX'] + \
+        ['MGX', 'MGYR', 'MHK', 'MIDD', 'MIGI', 'MIND', 'MIRA', 'MITK', 'MKC', 'MKSI'] + \
+        ['MKTW', 'MKTX', 'MKZR', 'MLAB', 'MLCI', 'MLKN', 'MLM', 'MLYS', 'MMC', 'MMM'] + \
+        ['MMSI', 'MNKD', 'MNOV', 'MNPR', 'MNRO', 'MNSB', 'MNST', 'MNTK', 'MNTS', 'MO'] + \
+        ['MOBX', 'MOFG', 'MOH', 'MORN', 'MOS', 'MOVE', 'MPAA', 'MPB', 'MPC', 'MPLT'] + \
+        ['MPWR', 'MQ', 'MRAM', 'MRBK', 'MRCY', 'MRK', 'MRKR', 'MRNA', 'MRSN', 'MRTN'] + \
+        ['MRVL', 'MS', 'MSAI', 'MSBI', 'MSCI', 'MSEX', 'MSFT', 'MSGM', 'MSI', 'MSPR'] + \
+        ['MSS', 'MSTR', 'MTB', 'MTCH', 'MTD', 'MTEX', 'MTRX', 'MTSI', 'MTVA', 'MU'] + \
+        ['MVBF', 'MVIS', 'MVST', 'MXCT', 'MXL', 'MYFW', 'MYGN', 'MYPS', 'MYRG', 'MYSE'] + \
+        ['MYSZ', 'MZTI', 'NAGE', 'NAII', 'NAKA', 'NAOV', 'NATH', 'NATR', 'NAUT', 'NAVI'] + \
+        ['NAVN', 'NB', 'NBBK', 'NBIX', 'NBN', 'NBTB', 'NCLH', 'NCMI', 'NCNO', 'NCPL'] + \
+        ['NCSM', 'NDAQ', 'NDLS', 'NDRA', 'NDSN', 'NECB', 'NEE', 'NEM', 'NEO', 'NEOG'] + \
+        ['NEON', 'NEOV', 'NEPH', 'NERV', 'NEUP', 'NEWT', 'NEXM', 'NEXT', 'NFBK', 'NFE'] + \
+        ['NFLX', 'NGNE', 'NI', 'NITO', 'NIXX', 'NKE', 'NKSH', 'NKTR', 'NKTX', 'NMFC'] + \
+        ['NMIH', 'NMRA', 'NMRK', 'NMTC', 'NNBR', 'NOC', 'NODK', 'NOEM', 'NOMA', 'NOTV'] + \
+        ['NOW', 'NPCE', 'NRC', 'NRDS', 'NRG', 'NRIM', 'NRXP', 'NSC', 'NSIT', 'NSPR'] + \
+        ['NSSC', 'NSTS', 'NSYS', 'NTAP', 'NTCT', 'NTGR', 'NTHI', 'NTIC', 'NTLA', 'NTNX'] + \
+        ['NTRA', 'NTRB', 'NTRP', 'NTRS', 'NTSK', 'NTWK', 'NUAI', 'NUE', 'NUTR', 'NUTX'] + \
+        ['NUVL', 'NUWE', 'NVAX', 'NVCT', 'NVDA', 'NVEC', 'NVNO', 'NVR', 'NVTS', 'NVVE'] + \
+        ['NWBI', 'NWE', 'NWFL', 'NWL', 'NWPX', 'NWS', 'NWSA', 'NWTG', 'NXGL', 'NXL'] + \
+        ['NXPI', 'NXPL', 'NXST', 'NXT', 'NXTC', 'NXXT', 'O', 'OABI', 'OBLG', 'OBT'] + \
+        ['OCC', 'OCFC', 'OCGN', 'OCUL', 'ODFL', 'ODP', 'ODYS', 'OESX', 'OFIX', 'OFLX'] + \
+        ['OKE', 'OKTA', 'OKUR', 'OLB', 'OLED', 'OLLI', 'OLMA', 'OLPX', 'OM', 'OMC'] + \
+        ['OMCC', 'OMCL', 'OMDA', 'OMER', 'OMEX', 'ON', 'ONB', 'ONCO', 'ONDS', 'ONEW'] + \
+        ['ONFO', 'ONMD', 'OPAL', 'OPBK', 'OPCH', 'OPEN', 'OPENL', 'OPENW', 'OPENZ', 'OPK'] + \
+        ['OPRX', 'OPTX', 'OPXS', 'ORBS', 'ORCL', 'ORGN', 'ORIC', 'ORKA', 'ORLY', 'ORMP'] + \
+        ['ORRF', 'OS', 'OSBC', 'OSIS', 'OSPN', 'OSRH', 'OSS', 'OSUR', 'OTIS', 'OTLK'] + \
+        ['OTTR', 'OUST', 'OVBC', 'OVID', 'OVLY', 'OXY', 'OZK', 'PACB', 'PAHC', 'PAL'] + \
+        ['PALI', 'PAMT', 'PANL', 'PANW', 'PASG', 'PATK', 'PAVM', 'PAYC', 'PAYO', 'PAYS'] + \
+        ['PAYX', 'PBBK', 'PBFS', 'PBHC', 'PBYI', 'PCAR', 'PCB', 'PCG', 'PCH', 'PCRX'] + \
+        ['PCSA', 'PCTY', 'PCVX', 'PCYO', 'PDEX', 'PDFS', 'PDLB', 'PDSB', 'PEBK', 'PEBO'] + \
+        ['PECO', 'PEG', 'PEGA', 'PENG', 'PENN', 'PEP', 'PEPG', 'PESI', 'PETS', 'PFBC'] + \
+        ['PFE', 'PFG', 'PFIS', 'PFSA', 'PFX', 'PG', 'PGC', 'PGEN', 'PGNY', 'PGR'] + \
+        ['PH', 'PHAT', 'PHIO', 'PHM', 'PHUN', 'PI', 'PIII', 'PKBK', 'PKG', 'PKOH'] + \
+        ['PLAB', 'PLAY', 'PLBC', 'PLBY', 'PLCE', 'PLD', 'PLPC', 'PLRX', 'PLSE', 'PLTK'] + \
+        ['PLTR', 'PLUG', 'PLUR', 'PLUS', 'PLXS', 'PM', 'PMCB', 'PMTS', 'PMVP', 'PNBK'] + \
+        ['PNC', 'PNFP', 'PNR', 'PNRG', 'PNTG', 'PNW', 'POAI', 'PODC', 'PODD', 'POLA'] + \
+        ['POOL', 'POWI', 'POWL', 'POWW', 'PPC', 'PPCB', 'PPG', 'PPIH', 'PPL', 'PPSI'] + \
+        ['PRAA', 'PRAX', 'PRCH', 'PRCT', 'PRDO', 'PRGS', 'PRHI', 'PRLD', 'PRME', 'PROP'] + \
+        ['PROV', 'PRPH', 'PRPL', 'PRPO', 'PRSO', 'PRTH', 'PRTS', 'PRU', 'PRVA', 'PSA'] + \
+        ['PSIX', 'PSKY', 'PSMT', 'PSNL', 'PSTV', 'PSX', 'PTC', 'PTCT', 'PTEN', 'PTGX'] + \
+        ['PTIX', 'PTLO', 'PTON', 'PTRN', 'PUBM', 'PULM', 'PVLA', 'PWP', 'PWR', 'PXLW'] + \
+        ['PXS', 'PYPL', 'PYXS', 'PZZA', 'Q', 'QCLS', 'QCOM', 'QCRH', 'QDEL', 'QETA'] + \
+        ['QLYS', 'QMCO', 'QNCX', 'QNST', 'QRHC', 'QRVO', 'QSI', 'QTRX', 'QTTB', 'QUBT'] + \
+        ['QUIK', 'QVCGA', 'RAIL', 'RAIN', 'RANI', 'RAPP', 'RAPT', 'RARE', 'RAVE', 'RBB'] + \
+        ['RBBN', 'RBCAA', 'RBKB', 'RBNE', 'RCAT', 'RCEL', 'RCKT', 'RCKY', 'RCL', 'RCMT'] + \
+        ['RDI', 'RDIB', 'RDNT', 'RDNW', 'RDVT', 'REAL', 'REBN', 'REFI', 'REFR', 'REG'] + \
+        ['REGN', 'REKR', 'RELI', 'RELL', 'RENT', 'REPL', 'REVB', 'REYN', 'RF', 'RFIL'] + \
+        ['RGCO', 'RGEN', 'RGLD', 'RGNX', 'RGP', 'RGS', 'RICK', 'RIGL', 'RILY', 'RIME'] + \
+        ['RIOT', 'RIVN', 'RJET', 'RJF', 'RKDA', 'RKLB', 'RL', 'RLAY', 'RLMD', 'RLYB'] + \
+        ['RMBI', 'RMBS', 'RMCF', 'RMCO', 'RMD', 'RMNI', 'RMR', 'RMTI', 'RNA', 'RNAC'] + \
+        ['RNAZ', 'RNTX', 'RNXT', 'ROAD', 'ROCK', 'ROK', 'ROKU', 'ROL', 'ROOT', 'ROP'] + \
+        ['ROST', 'RPAY', 'RPD', 'RPID', 'RR', 'RRBI', 'RRGB', 'RRR', 'RSG', 'RSSS'] + \
+        ['RSVR', 'RTX', 'RUBI', 'RUM', 'RUN', 'RUSHA', 'RUSHB', 'RVMD', 'RVPH', 'RVSB'] + \
+        ['RVTY', 'RVYL', 'RWAY', 'RXRX', 'RXST', 'RXT', 'RYM', 'RYTM', 'RZLT', 'SABR'] + \
+        ['SABS', 'SAFT', 'SAFX', 'SAIA', 'SAIC', 'SAIL', 'SAMG', 'SANA', 'SANM', 'SATL'] + \
+        ['SAVA', 'SBAC', 'SBC', 'SBCF', 'SBET', 'SBFG', 'SBGI', 'SBLX', 'SBRA', 'SBUX'] + \
+        ['SCHL', 'SCHW', 'SCKT', 'SCLX', 'SCNX', 'SCOR', 'SCSC', 'SCVL', 'SCYX', 'SDGR'] + \
+        ['SDOT', 'SDST', 'SEDG', 'SEER', 'SEGG', 'SEIC', 'SELF', 'SENEA', 'SENEB', 'SENS'] + \
+        ['SEPN', 'SERA', 'SERV', 'SEV', 'SEVN', 'SEZL', 'SFBC', 'SFD', 'SFIX', 'SFM'] + \
+        ['SFNC', 'SFST', 'SGA', 'SGBX', 'SGC', 'SGD', 'SGHT', 'SGLY', 'SGMO', 'SGMT'] + \
+        ['SGRP', 'SGRY', 'SHBI', 'SHC', 'SHEN', 'SHFS', 'SHIM', 'SHIP', 'SHLS', 'SHOO'] + \
+        ['SHW', 'SIBN', 'SIDU', 'SIEB', 'SIGA', 'SIGI', 'SILO', 'SINT', 'SION', 'SIRI'] + \
+        ['SITM', 'SJM', 'SKIN', 'SKWD', 'SKYE', 'SKYQ', 'SKYT', 'SKYW', 'SKYX', 'SLAB'] + \
+        ['SLB', 'SLDB', 'SLDE', 'SLDP', 'SLE', 'SLM', 'SLNG', 'SLNH', 'SLNO', 'SLP'] + \
+        ['SLRX', 'SLS', 'SMBC', 'SMCI', 'SMID', 'SMLR', 'SMMT', 'SMPL', 'SMSI', 'SMTC'] + \
+        ['SMTI', 'SMTK', 'SMXT', 'SNA', 'SNAL', 'SNBR', 'SNCR', 'SNCY', 'SND', 'SNDK'] + \
+        ['SNDX', 'SNES', 'SNEX', 'SNFCA', 'SNGX', 'SNOA', 'SNPS', 'SNSE', 'SNTI', 'SNWV'] + \
+        ['SNYR', 'SO', 'SOBR', 'SOFI', 'SOHO', 'SOLS', 'SOLV', 'SONM', 'SONN', 'SONO'] + \
+        ['SOPA', 'SOTK', 'SOUN', 'SOWG', 'SPAI', 'SPFI', 'SPG', 'SPGI', 'SPOK', 'SPRB'] + \
+        ['SPRO', 'SPRY', 'SPSC', 'SPT', 'SPWH', 'SPWR', 'SQFT', 'SQFTW', 'SRCE', 'SRE'] + \
+        ['SRPT', 'SRRK', 'SRTA', 'SRTS', 'SRZN', 'SSBI', 'SSII', 'SSKN', 'SSNC', 'SSP'] + \
+        ['SSRM', 'SSTI', 'SSYS', 'STAA', 'STBA', 'STE', 'STEP', 'STEX', 'STGW', 'STI'] + \
+        ['STIM', 'STKL', 'STKS', 'STLD', 'STOK', 'STRA', 'STRL', 'STRO', 'STRR', 'STRS'] + \
+        ['STRT', 'STSS', 'STT', 'STTK', 'STX', 'STZ', 'SUIG', 'SUNE', 'SUNS', 'SUPN'] + \
+        ['SURG', 'SUUN', 'SVCO', 'SVRA', 'SVRN', 'SW', 'SWAG', 'SWBI', 'SWIM', 'SWK'] + \
+        ['SWKH', 'SWKS', 'SXTC', 'SXTP', 'SYBT', 'SYBX', 'SYF', 'SYK', 'SYM', 'SYNA'] + \
+        ['SYPR', 'SYRE', 'SYY', 'T', 'TACT', 'TAIT', 'TALK', 'TAOX', 'TAP', 'TARA'] + \
+        ['TARS', 'TASK', 'TAYD', 'TBBK', 'TBCH', 'TBH', 'TBHC', 'TBMC', 'TBRG', 'TCBI'] + \
+        ['TCBK', 'TCBS', 'TCMD', 'TCRT', 'TCRX', 'TCX', 'TDG', 'TDUP', 'TDY', 'TEAD'] + \
+        ['TEAM', 'TECH', 'TECX', 'TEL', 'TELO', 'TEM', 'TENB', 'TENX', 'TER', 'TERN'] + \
+        ['TFC', 'TFSL', 'TGL', 'TGT', 'TGTX', 'TH', 'THAR', 'THFF', 'THRM', 'THRY'] + \
+        ['TIGO', 'TIL', 'TILE', 'TIPT', 'TITN', 'TJX', 'TKNO', 'TKO', 'TLN', 'TLPH'] + \
+        ['TLRY', 'TLS', 'TLSI', 'TMC', 'TMCI', 'TMDX', 'TMO', 'TMUS', 'TNDM', 'TNGX'] + \
+        ['TNON', 'TNXP', 'TNYA', 'TOI', 'TOMZ', 'TONX', 'TOWN', 'TPG', 'TPL', 'TPR'] + \
+        ['TPST', 'TRAW', 'TRDA', 'TREE', 'TRGP', 'TRIN', 'TRIP', 'TRMB', 'TRMD', 'TRMK'] + \
+        ['TRNR', 'TRNS', 'TRON', 'TROW', 'TRS', 'TRST', 'TRUG', 'TRUP', 'TRV', 'TRVI'] + \
+        ['TSBK', 'TSCO', 'TSHA', 'TSLA', 'TSN', 'TSSI', 'TT', 'TTAN', 'TTD', 'TTEC'] + \
+        ['TTEK', 'TTGT', 'TTMI', 'TTRX', 'TTSH', 'TTWO', 'TUSK', 'TVGN', 'TVRD', 'TVTX'] + \
+        ['TW', 'TWFG', 'TWIN', 'TWNP', 'TWST', 'TXG', 'TXMD', 'TXN', 'TXRH', 'TXT'] + \
+        ['TYGO', 'TYL', 'TYRA', 'TZOO', 'TZUP', 'UAL', 'UBCP', 'UBER', 'UBFO', 'UBSI'] + \
+        ['UCFI', 'UCTT', 'UDMY', 'UDR', 'UEIC', 'UFCS', 'UFPI', 'UFPT', 'UG', 'UGRO'] + \
+        ['UHG', 'UHS', 'ULBI', 'ULCC', 'ULH', 'ULTA', 'ULY', 'UMBF', 'UNB', 'UNCY'] + \
+        ['UNH', 'UNIT', 'UNP', 'UNTY', 'UONE', 'UONEK', 'UPB', 'UPBD', 'UPLD', 'UPS'] + \
+        ['UPWK', 'UPXI', 'URBN', 'URI', 'UROY', 'USAR', 'USAU', 'USB', 'USCB', 'USEA'] + \
+        ['USEG', 'USIO', 'USLM', 'UTHR', 'UTMD', 'UVSP', 'V', 'VABK', 'VALU', 'VANI'] + \
+        ['VBIX', 'VC', 'VCEL', 'VCTR', 'VCYT', 'VECO', 'VEEA', 'VEEE', 'VERA', 'VERI'] + \
+        ['VERO', 'VERU', 'VERX', 'VGAS', 'VHC', 'VIAV', 'VICI', 'VICR', 'VIR', 'VIRC'] + \
+        ['VITL', 'VIVK', 'VIVS', 'VKTX', 'VLGEA', 'VLO', 'VLTO', 'VLY', 'VMC', 'VNCE'] + \
+        ['VNDA', 'VNOM', 'VOR', 'VRA', 'VRAR', 'VRCA', 'VRDN', 'VREX', 'VRM', 'VRME'] + \
+        ['VRNS', 'VRRM', 'VRSK', 'VRSN', 'VRTX', 'VS', 'VSAT', 'VSEC', 'VSEE', 'VST'] + \
+        ['VSTD', 'VSTM', 'VTGN', 'VTR', 'VTRS', 'VTSI', 'VTVT', 'VTYX', 'VUZI', 'VVOS'] + \
+        ['VWAV', 'VYGR', 'VYNE', 'VZ', 'WAB', 'WABC', 'WAFD', 'WASH', 'WAT', 'WATT'] + \
+        ['WAY', 'WBD', 'WDAY', 'WDC', 'WDFC', 'WEC', 'WELL', 'WEN', 'WERN', 'WEST'] + \
+        ['WETH', 'WEYS', 'WFC', 'WFCF', 'WGRX', 'WGS', 'WHLR', 'WHWK', 'WINA', 'WING'] + \
+        ['WKHS', 'WKSP', 'WLDN', 'WLFC', 'WM', 'WMB', 'WMG', 'WMT', 'WNEB', 'WOOF'] + \
+        ['WORX', 'WRAP', 'WRB', 'WRLD', 'WSBC', 'WSBF', 'WSBK', 'WSC', 'WSFS', 'WSM'] + \
+        ['WST', 'WTBA', 'WTFC', 'WTW', 'WULF', 'WVVI', 'WW', 'WWD', 'WY', 'WYNN'] + \
+        ['XAIR', 'XBIO', 'XBIT', 'XBP', 'XCUR', 'XEL', 'XELB', 'XERS', 'XFOR', 'XGN'] + \
+        ['XHLD', 'XLO', 'XMTR', 'XNCR', 'XOM', 'XOMA', 'XOS', 'XP', 'XPEL', 'XPON'] + \
+        ['XRAY', 'XRTX', 'XRX', 'XTIA', 'XWEL', 'XWIN', 'XXII', 'XYL', 'XYZ', 'YHC'] + \
+        ['YHGJ', 'YORW', 'YUM', 'YYAI', 'ZAZZT', 'ZBH', 'ZBIO', 'ZBRA', 'ZBZZT', 'ZD'] + \
+        ['ZENA', 'ZENV', 'ZEO', 'ZEUS', 'ZG', 'ZION', 'ZM', 'ZS', 'ZTS', 'ZUMZ'] + \
+        ['ZVRA', 'ZXYZ.A', 'ZYME', 'ZYXI']
+    print(f"Loaded {len(tickers)} tickers (S&P 500 + NASDAQ)")
     return tickers
 
 
