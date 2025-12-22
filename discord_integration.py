@@ -102,9 +102,6 @@ class DiscordNotifier:
 
             embed.set_footer(text=footer_text)
 
-            # Send chart commands as message content so bot auto-responds
-            chart_commands = " ".join([f"/c {s['ticker']}" for s in stocks_to_show])
-            webhook.content = chart_commands
             webhook.add_embed(embed)
             response = webhook.execute()
 
