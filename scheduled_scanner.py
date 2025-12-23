@@ -5,6 +5,7 @@ Runs automated scans and sends Discord notifications.
 
 import os
 import json
+import numpy as np
 from datetime import datetime
 from stock_scanner import DemandZoneScanner
 from utils import get_sp500_tickers
@@ -13,6 +14,32 @@ from discord_integration import (
     detect_new_stocks,
     detect_price_alerts
 )
+
+
+def convert_to_json_serializable(obj):
+    """
+    Convert numpy types and other non-JSON-serializable types to native Python types.
+
+    Args:
+        obj: Object to convert
+
+    Returns:
+        JSON-serializable version of the object
+    """
+    if isinstance(obj, dict):
+        return {k: convert_to_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_to_json_serializable(item) for item in obj]
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, (np.integer, np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return convert_to_json_serializable(obj.tolist())
+    else:
+        return obj
 
 
 def main():
@@ -49,17 +76,21 @@ def main():
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_file = f"scan_results_{timestamp}.json"
 
-    # Prepare results for JSON (convert datetime to string)
+    # Prepare results for JSON (convert datetime and numpy types to native Python types)
     json_results = []
     for result in results:
+        # Convert zone data
+        zone_data = {k: v for k, v in result['zone'].items() if k != 'formed_date'}
+        zone_data['formed_date'] = result['zone']['formed_date'].strftime('%Y-%m-%d')
+
+        # Convert indicators to JSON-serializable format
+        indicators = convert_to_json_serializable(result.get('indicators', {}))
+
         json_result = {
             'ticker': result['ticker'],
-            'current_price': result['current_price'],
-            'zone': {
-                **result['zone'],
-                'formed_date': result['zone']['formed_date'].strftime('%Y-%m-%d')
-            },
-            'indicators': result.get('indicators', {})
+            'current_price': float(result['current_price']),
+            'zone': convert_to_json_serializable(zone_data),
+            'indicators': indicators
         }
         json_results.append(json_result)
 
