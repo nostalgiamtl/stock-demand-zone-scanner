@@ -31,14 +31,14 @@ def main():
     scanner = DemandZoneScanner(lookback_years=2, zone_tolerance=0.03)
 
     # Fetch tickers
-    print("Fetching S&P 500 tickers...")
+    print("Fetching stock tickers (S&P 500 + NASDAQ)...")
     tickers = get_sp500_tickers()
 
     if not tickers:
-        print("Error: Failed to fetch S&P 500 tickers")
+        print("Error: Failed to fetch stock tickers")
         return
 
-    print(f"Scanning {len(tickers)} tickers...")
+    print(f"Scanning {len(tickers)} tickers (S&P 500 + NASDAQ)...")
 
     # Scan all tickers
     results = scanner.scan_multiple_tickers(tickers)
