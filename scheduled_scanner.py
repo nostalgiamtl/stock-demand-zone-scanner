@@ -11,8 +11,7 @@ from stock_scanner import DemandZoneScanner
 from utils import get_sp500_tickers
 from discord_integration import (
     DiscordNotifier,
-    detect_new_stocks,
-    detect_price_alerts
+    detect_new_stocks
 )
 
 
@@ -107,7 +106,7 @@ def main():
     if webhook_url and results:
         notifier = DiscordNotifier(webhook_url)
 
-        # Detect new stocks
+        # Detect and send new stocks only (no price alerts to avoid spam)
         new_stocks = detect_new_stocks(results)
 
         if new_stocks:
@@ -118,18 +117,7 @@ def main():
             else:
                 print("❌ Failed to send new stocks alert")
         else:
-            print("No new stocks to report")
-
-        # Price alerts
-        alerts = detect_price_alerts(results)
-
-        if alerts:
-            print(f"Sending {len(alerts)} price alert(s)...")
-            for ticker, alert_type, details in alerts[:5]:  # Limit to 5
-                notifier.send_price_alert(ticker, alert_type, details)
-            print("✅ Price alerts sent successfully")
-        else:
-            print("No price alerts to send")
+            print("No new stocks to report (all {len(results)} stocks were in previous scan)")
 
     print(f"Scan completed at {datetime.now()}")
 
