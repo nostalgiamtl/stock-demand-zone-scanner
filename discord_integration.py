@@ -43,6 +43,17 @@ class DiscordNotifier:
             bearish_stocks = [s for s in new_stocks if s.get('indicators', {}).get('macd_trend') == 'Bearish']
             neutral_stocks = [s for s in new_stocks if s.get('indicators', {}).get('macd_trend') not in ['Bullish', 'Bearish']]
 
+            # Debug logging
+            print(f"Discord notification breakdown:")
+            print(f"  Total new stocks: {total_stocks}")
+            print(f"  Bullish MACD: {len(bullish_stocks)}")
+            print(f"  Bearish MACD: {len(bearish_stocks)}")
+            print(f"  Neutral/No MACD: {len(neutral_stocks)}")
+            if bullish_stocks:
+                print(f"  Bullish tickers: {[s['ticker'] for s in bullish_stocks]}")
+            if bearish_stocks:
+                print(f"  Bearish tickers: {[s['ticker'] for s in bearish_stocks]}")
+
             # Sort each group by best opportunities (oversold first, then lowest RSI)
             def sort_by_rsi(stocks):
                 return sorted(stocks, key=lambda x: (
