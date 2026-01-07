@@ -20,8 +20,10 @@ class DiscordNotifier:
 
     def send_new_stocks_alert(self, new_stocks, scan_timestamp=None):
         """
-        Send alert for new stocks entering demand zones.
-        Shows only top 3 when more than 5 stocks to avoid spam.
+        Send alerts for new stocks entering demand zones.
+        Sends two separate notifications:
+        1. Top 3 stocks with Bullish MACD
+        2. Top 3 stocks with Bearish MACD
 
         Args:
             new_stocks (list): List of new stock results
@@ -36,38 +38,102 @@ class DiscordNotifier:
         try:
             total_stocks = len(new_stocks)
 
-            # Sort by best opportunities (oversold first, then lowest RSI)
-            sorted_stocks = sorted(new_stocks, key=lambda x: (
-                x.get('indicators', {}).get('rsi_signal') != 'Oversold',
-                x.get('indicators', {}).get('rsi', 50)
-            ))
+            # Split stocks by MACD trend
+            bullish_stocks = [s for s in new_stocks if s.get('indicators', {}).get('macd_trend') == 'Bullish']
+            bearish_stocks = [s for s in new_stocks if s.get('indicators', {}).get('macd_trend') == 'Bearish']
+            neutral_stocks = [s for s in new_stocks if s.get('indicators', {}).get('macd_trend') not in ['Bullish', 'Bearish']]
 
-            # If more than 5, only show top 3
-            stocks_to_show = sorted_stocks[:3] if total_stocks > 5 else sorted_stocks
-            remaining_count = total_stocks - len(stocks_to_show)
+            # Sort each group by best opportunities (oversold first, then lowest RSI)
+            def sort_by_rsi(stocks):
+                return sorted(stocks, key=lambda x: (
+                    x.get('indicators', {}).get('rsi_signal') != 'Oversold',
+                    x.get('indicators', {}).get('rsi', 50)
+                ))
 
-            # Create webhook
+            bullish_sorted = sort_by_rsi(bullish_stocks)
+            bearish_sorted = sort_by_rsi(bearish_stocks)
+            neutral_sorted = sort_by_rsi(neutral_stocks)
+
+            # Send bullish MACD notification (top 3)
+            if bullish_sorted:
+                self._send_macd_group_alert(
+                    bullish_sorted[:3],
+                    "Bullish",
+                    len(bullish_sorted),
+                    total_stocks,
+                    scan_timestamp
+                )
+
+            # Send bearish MACD notification (top 3)
+            if bearish_sorted:
+                self._send_macd_group_alert(
+                    bearish_sorted[:3],
+                    "Bearish",
+                    len(bearish_sorted),
+                    total_stocks,
+                    scan_timestamp
+                )
+
+            # If there are neutral stocks and no other groups, send them
+            if neutral_sorted and not bullish_sorted and not bearish_sorted:
+                self._send_macd_group_alert(
+                    neutral_sorted[:3],
+                    "Neutral",
+                    len(neutral_sorted),
+                    total_stocks,
+                    scan_timestamp
+                )
+
+            return True
+
+        except Exception as e:
+            print(f"Error sending Discord notification: {e}")
+            return False
+
+    def _send_macd_group_alert(self, stocks, macd_type, group_total, overall_total, scan_timestamp=None):
+        """
+        Send a Discord alert for a specific MACD group.
+
+        Args:
+            stocks (list): Stocks to show (already limited to top 3)
+            macd_type (str): "Bullish", "Bearish", or "Neutral"
+            group_total (int): Total stocks in this MACD group
+            overall_total (int): Total new stocks across all groups
+            scan_timestamp (datetime): When the scan was performed
+        """
+        try:
             webhook = DiscordWebhook(url=self.webhook_url)
 
-            # Title and description based on count
-            if total_stocks > 5:
-                title = "🚨 New Stocks at Support Levels"
-                description = f"**{total_stocks}** stocks found at proven support!\nShowing top **{len(stocks_to_show)}** best opportunities."
+            # Set color and emoji based on MACD type
+            if macd_type == "Bullish":
+                color = 0x00ff00  # Green
+                emoji = "📈"
+                title = f"{emoji} New Stocks at Support - BULLISH MACD"
+            elif macd_type == "Bearish":
+                color = 0xff6600  # Orange
+                emoji = "📉"
+                title = f"{emoji} New Stocks at Support - BEARISH MACD"
             else:
-                title = "🚨 New Stocks at Support Levels"
-                description = f"Found **{total_stocks}** stock(s) at proven support levels"
+                color = 0xffaa00  # Yellow
+                emoji = "➡️"
+                title = f"{emoji} New Stocks at Support - NEUTRAL MACD"
+
+            description = f"**{group_total}** stock(s) with {macd_type} MACD at proven support\n"
+            description += f"Showing top **{len(stocks)}** opportunities"
+            if overall_total > group_total:
+                description += f"\n\n*({overall_total} total new stocks across all MACD signals)*"
 
             embed = DiscordEmbed(
                 title=title,
                 description=description,
-                color=0x00ff00
+                color=color
             )
 
             if scan_timestamp:
                 embed.set_timestamp(scan_timestamp.timestamp())
 
             # Add each stock as a field
-            for stock in stocks_to_show:
+            for stock in stocks:
                 ticker = stock['ticker']
                 current_price = stock['current_price']
                 zone = stock['zone']
@@ -94,9 +160,10 @@ class DiscordNotifier:
                     inline=True
                 )
 
-            # Add footer with remaining count if applicable
-            if remaining_count > 0:
-                footer_text = f"Stock Scanner • {remaining_count} more stocks not shown - check the website for full list"
+            # Add footer
+            remaining = group_total - len(stocks)
+            if remaining > 0:
+                footer_text = f"Stock Scanner • {remaining} more {macd_type.lower()} stocks not shown"
             else:
                 footer_text = "Stock Demand Zone Scanner"
 
@@ -108,7 +175,7 @@ class DiscordNotifier:
             return response.status_code == 200
 
         except Exception as e:
-            print(f"Error sending Discord notification: {e}")
+            print(f"Error sending {macd_type} MACD alert: {e}")
             return False
 
     def send_price_alert(self, ticker, alert_type, details):
