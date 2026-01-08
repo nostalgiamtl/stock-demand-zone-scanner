@@ -45,17 +45,17 @@ def cached_scan(lookback_years, zone_tolerance, cache_buster=None):
 
 def create_stock_chart(result):
     """
-    Create an interactive chart showing the stock price with demand zones marked.
+    Create an interactive chart showing the stock price with flipped resistance levels marked.
 
     Args:
-        result (dict): Scan result containing stock data and zones
+        result (dict): Scan result containing stock data and levels
 
     Returns:
         plotly figure
     """
     df = result['data']
-    zones = result['all_zones']
-    matched_zone = result['zone']
+    levels = result['all_levels']
+    matched_level = result['level']
 
     fig = make_subplots(
         rows=2, cols=1,
@@ -78,37 +78,35 @@ def create_stock_chart(result):
         row=1, col=1
     )
 
-    # Add all demand zones as rectangles
-    for idx, zone in enumerate(zones):
-        is_matched = (zone['zone_low'] == matched_zone['zone_low'] and
-                     zone['zone_high'] == matched_zone['zone_high'])
+    # Add all flipped levels as horizontal lines
+    for idx, level_data in enumerate(levels):
+        is_matched = (level_data['level'] == matched_level['level'])
 
-        color = 'rgba(0, 255, 0, 0.3)' if is_matched else 'rgba(100, 200, 255, 0.2)'
+        color = 'rgba(0, 255, 0, 0.8)' if is_matched else 'rgba(100, 200, 255, 0.5)'
+        width = 2 if is_matched else 1
 
-        fig.add_shape(
-            type="rect",
-            x0=zone['formed_date'],
-            x1=df.index[-1],
-            y0=zone['zone_low'],
-            y1=zone['zone_high'],
-            fillcolor=color,
-            line=dict(color=color, width=1),
+        # Draw horizontal line at the level
+        fig.add_hline(
+            y=level_data['level'],
+            line_color=color,
+            line_width=width,
+            line_dash='dash' if not is_matched else 'solid',
             row=1, col=1
         )
 
-        # Add label for matched zone
+        # Add label for matched level
         if is_matched:
             fig.add_annotation(
                 x=df.index[-1],
-                y=zone['zone_mid'],
-                text=f"Active Zone: {format_price(zone['zone_low'])}-{format_price(zone['zone_high'])}",
+                y=level_data['level'],
+                text=f"Flipped Level: {format_price(level_data['level'])} ({level_data['resistance_tests']}x tested)",
                 showarrow=True,
                 arrowhead=2,
                 arrowsize=1,
                 arrowwidth=2,
                 arrowcolor="green",
                 ax=-100,
-                ay=0,
+                ay=-30,
                 bgcolor="rgba(0, 255, 0, 0.8)",
                 row=1, col=1
             )
@@ -144,13 +142,15 @@ def create_stock_chart(result):
 
 
 def main():
-    st.title("📈 Stock Demand Zone Scanner")
+    st.title("📈 Supply/Demand Flip Scanner")
     st.markdown("""
-    This tool scans S&P 500 stocks to find those trading at **multi-year demand zones** using weekly timeframe analysis.
+    This tool scans S&P 500 + NASDAQ stocks to find **resistance levels that flipped to support**.
 
-    **What are demand zones?**
-    Areas where the price consolidated before rallying significantly. When price returns to these zones,
-    they often act as support levels for potential reversals.
+    **What are flipped levels?**
+    Price levels tested 3+ times as resistance (former supply), then broke above and flipped to become support (new demand).
+    These are high-probability setups when price returns to test the flipped level.
+
+    **Pure price action** - indicators are supplementary info only.
     """)
 
     # Sidebar configuration
@@ -238,7 +238,7 @@ def main():
 
     if enable_discord or webhook_from_secrets:
         st.sidebar.markdown("**Alert Types:**")
-        alert_new_stocks = st.sidebar.checkbox("New stocks entering zones", value=True)
+        alert_new_stocks = st.sidebar.checkbox("New stocks testing flipped levels", value=True)
         alert_price_signals = st.sidebar.checkbox("Price alerts (RSI/MACD)", value=False)
 
         if not webhook_from_secrets:
@@ -338,13 +338,13 @@ def main():
         scan_timestamp = st.session_state.get('scan_timestamp')
 
         if not results:
-            st.warning("No stocks found at demand zones with current settings. Try adjusting the parameters.")
+            st.warning("No stocks found testing flipped levels with current settings. Try adjusting the parameters.")
             return
 
         # Display success message with timestamp
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.success(f"✅ Found {len(results)} stocks at demand zones!")
+            st.success(f"✅ Found {len(results)} stocks testing flipped resistance levels!")
         with col2:
             if scan_timestamp:
                 time_ago = datetime.now() - scan_timestamp
@@ -360,18 +360,18 @@ def main():
         # Create results dataframe
         results_data = []
         for result in results:
-            zone = result['zone']
+            level = result['level']
             indicators = result.get('indicators', {})
 
             row_data = {
                 'Ticker': result['ticker'],
                 'Current Price': result['current_price'],
-                'Zone Low': zone['zone_low'],
-                'Zone High': zone['zone_high'],
-                'Distance (%)': abs(zone['distance_pct']),
-                'Rally (%)': zone['rally_pct'],
-                'Zone Strength': zone['strength'],
-                'Zone Formed': zone['formed_date'].strftime('%Y-%m-%d')
+                'Flipped Level': level['level'],
+                'Resistance Tests': level['resistance_tests'],
+                'Distance (%)': abs(level['distance_pct']),
+                'Breakout Date': level['breakout_date'],
+                'Level Strength': level['strength'],
+                'Last Resistance': level['last_resistance_date']
             }
 
             # Add technical indicators if available
@@ -390,7 +390,7 @@ def main():
         # Sorting options
         col1, col2 = st.columns([2, 1])
         with col1:
-            sort_options = ['Distance (%)', 'Rally (%)', 'Zone Strength', 'RSI', 'Vol Ratio', 'Ticker']
+            sort_options = ['Distance (%)', 'Resistance Tests', 'Level Strength', 'RSI', 'Vol Ratio', 'Ticker']
             # Filter out options not in dataframe
             available_options = [opt for opt in sort_options if opt in df_results.columns]
             sort_by = st.selectbox(
@@ -411,7 +411,7 @@ def main():
         st.download_button(
             label="📥 Download Results as CSV",
             data=csv_data,
-            file_name=f"demand_zone_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"resistance_flip_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
             help="Download the scan results as a CSV file for further analysis"
         )
@@ -419,11 +419,10 @@ def main():
         # Format dataframe
         format_dict = {
             'Current Price': '${:.2f}',
-            'Zone Low': '${:.2f}',
-            'Zone High': '${:.2f}',
+            'Flipped Level': '${:.2f}',
+            'Resistance Tests': '{:.0f}',
             'Distance (%)': '{:.2f}%',
-            'Rally (%)': '{:.2f}%',
-            'Zone Strength': '{:.0f}',
+            'Level Strength': '{:.0f}',
         }
 
         # Add RSI and Vol Ratio formatting if present
@@ -449,38 +448,40 @@ def main():
         if selected_ticker:
             selected_result = next(r for r in results if r['ticker'] == selected_ticker)
 
-            # Display zone details
-            zone = selected_result['zone']
+            # Display level details
+            level = selected_result['level']
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
                 st.metric("Current Price", format_price(selected_result['current_price']))
             with col2:
-                st.metric("Zone Range", f"{format_price(zone['zone_low'])} - {format_price(zone['zone_high'])}")
+                st.metric("Flipped Level", format_price(level['level']))
             with col3:
-                st.metric("Rally After Zone", format_percent(zone['rally_pct']))
+                st.metric("Resistance Tests", f"{level['resistance_tests']}x")
             with col4:
-                st.metric("Zone Strength", f"{zone['strength']} weeks")
+                st.metric("Distance", format_percent(level['distance_pct']))
 
             # Display chart
             fig = create_stock_chart(selected_result)
             st.plotly_chart(fig, use_container_width=True)
 
-            # Zone information
+            # Level information
             col1, col2 = st.columns(2)
 
             with col1:
-                with st.expander("ℹ️ Zone Details"):
-                    st.write(f"**Zone Formation Date:** {zone['formed_date'].strftime('%Y-%m-%d')}")
-                    st.write(f"**Zone Price Range:** {format_price(zone['zone_low'])} - {format_price(zone['zone_high'])}")
-                    st.write(f"**Current Distance from Zone:** {format_percent(abs(zone['distance_pct']))}")
-                    st.write(f"**Rally Percentage After Formation:** {format_percent(zone['rally_pct'])}")
-                    st.write(f"**Consolidation Period:** {zone['strength']} weeks")
+                with st.expander("ℹ️ Level Details"):
+                    st.write(f"**Flipped Level Price:** {format_price(level['level'])}")
+                    st.write(f"**Times Tested as Resistance:** {level['resistance_tests']}")
+                    st.write(f"**Resistance Test Dates:** {', '.join(level['resistance_dates'])}")
+                    st.write(f"**Last Resistance Test:** {level['last_resistance_date']}")
+                    st.write(f"**Breakout Date:** {level['breakout_date']}")
+                    st.write(f"**Support Test Date:** {level['support_test_date']}")
+                    st.write(f"**Current Distance from Level:** {format_percent(level['distance_pct'])}")
 
-                    if zone['distance_pct'] <= 0:
-                        st.success("✅ Price is currently INSIDE the demand zone")
+                    if abs(level['distance_pct']) <= 2:
+                        st.success("✅ Price is AT the flipped level (within 2%)")
                     else:
-                        st.info("ℹ️ Price is near the demand zone (within tolerance)")
+                        st.info(f"ℹ️ Price is {level['distance_pct']:.1f}% from the level")
 
             with col2:
                 indicators = selected_result.get('indicators', {})

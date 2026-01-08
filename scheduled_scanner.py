@@ -78,9 +78,8 @@ def main():
     # Prepare results for JSON (convert datetime and numpy types to native Python types)
     json_results = []
     for result in results:
-        # Convert zone data
-        zone_data = {k: v for k, v in result['zone'].items() if k != 'formed_date'}
-        zone_data['formed_date'] = result['zone']['formed_date'].strftime('%Y-%m-%d')
+        # Convert level data (no datetime fields to convert in new structure)
+        level_data = convert_to_json_serializable(result.get('level', {}))
 
         # Convert indicators to JSON-serializable format
         indicators = convert_to_json_serializable(result.get('indicators', {}))
@@ -88,7 +87,7 @@ def main():
         json_result = {
             'ticker': result['ticker'],
             'current_price': float(result['current_price']),
-            'zone': convert_to_json_serializable(zone_data),
+            'level': level_data,
             'indicators': indicators
         }
         json_results.append(json_result)

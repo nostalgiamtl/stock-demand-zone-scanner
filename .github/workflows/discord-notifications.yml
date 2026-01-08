@@ -1,0 +1,230 @@
+name: Discord Notifications
+
+on:
+  # Trigger on commit comments
+  commit_comment:
+    types: [created]
+
+  # Trigger on issue comments (includes PR comments)
+  issue_comment:
+    types: [created]
+
+  # Trigger on PR review comments
+  pull_request_review_comment:
+    types: [created]
+
+  # Trigger on PR reviews
+  pull_request_review:
+    types: [submitted]
+
+  # Trigger on new pushes
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    name: Send Discord Notification
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Send Push Notification
+        if: github.event_name == 'push'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          COMMIT_AUTHOR=$(git log -1 --pretty=%an)
+          COMMIT_SHA=$(git log -1 --pretty=%h)
+          COMMIT_URL="https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+
+          curl -H "Content-Type: application/json" \
+               -d "{
+                 \"embeds\": [{
+                   \"title\": \"📝 New Push to ${{ github.ref_name }}\",
+                   \"description\": \"**$COMMIT_AUTHOR** pushed a new commit\",
+                   \"color\": 3447003,
+                   \"fields\": [
+                     {
+                       \"name\": \"Commit Message\",
+                       \"value\": \"${COMMIT_MSG:0:500}\",
+                       \"inline\": false
+                     },
+                     {
+                       \"name\": \"Commit\",
+                       \"value\": \"[\`$COMMIT_SHA\`]($COMMIT_URL)\",
+                       \"inline\": true
+                     },
+                     {
+                       \"name\": \"Branch\",
+                       \"value\": \"${{ github.ref_name }}\",
+                       \"inline\": true
+                     }
+                   ],
+                   \"footer\": {
+                     \"text\": \"${{ github.repository }}\"
+                   },
+                   \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+                 }]
+               }" \
+               "$DISCORD_WEBHOOK"
+
+      - name: Send Commit Comment Notification
+        if: github.event_name == 'commit_comment'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          COMMENT_BODY=$(echo '${{ github.event.comment.body }}' | sed 's/"/\\"/g')
+          COMMENT_AUTHOR="${{ github.event.comment.user.login }}"
+          COMMENT_URL="${{ github.event.comment.html_url }}"
+          COMMIT_SHA="${{ github.event.comment.commit_id }}"
+
+          curl -H "Content-Type: application/json" \
+               -d "{
+                 \"embeds\": [{
+                   \"title\": \"💬 New Comment on Commit\",
+                   \"description\": \"**$COMMENT_AUTHOR** commented on commit \`${COMMIT_SHA:0:7}\`\",
+                   \"color\": 15844367,
+                   \"fields\": [
+                     {
+                       \"name\": \"Comment\",
+                       \"value\": \"${COMMENT_BODY:0:1000}\",
+                       \"inline\": false
+                     }
+                   ],
+                   \"footer\": {
+                     \"text\": \"${{ github.repository }}\"
+                   },
+                   \"url\": \"$COMMENT_URL\",
+                   \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+                 }]
+               }" \
+               "$DISCORD_WEBHOOK"
+
+      - name: Send Issue/PR Comment Notification
+        if: github.event_name == 'issue_comment'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          COMMENT_BODY=$(echo '${{ github.event.comment.body }}' | sed 's/"/\\"/g')
+          COMMENT_AUTHOR="${{ github.event.comment.user.login }}"
+          COMMENT_URL="${{ github.event.comment.html_url }}"
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+
+          # Check if it's a PR or issue
+          if [[ "${{ github.event.issue.pull_request }}" != "" ]]; then
+            ITEM_TYPE="Pull Request"
+            EMOJI="🔀"
+          else
+            ITEM_TYPE="Issue"
+            EMOJI="🐛"
+          fi
+
+          curl -H "Content-Type: application/json" \
+               -d "{
+                 \"embeds\": [{
+                   \"title\": \"$EMOJI Comment on $ITEM_TYPE #$ISSUE_NUMBER\",
+                   \"description\": \"**$COMMENT_AUTHOR** commented on: *$ISSUE_TITLE*\",
+                   \"color\": 16776960,
+                   \"fields\": [
+                     {
+                       \"name\": \"Comment\",
+                       \"value\": \"${COMMENT_BODY:0:1000}\",
+                       \"inline\": false
+                     }
+                   ],
+                   \"footer\": {
+                     \"text\": \"${{ github.repository }}\"
+                   },
+                   \"url\": \"$COMMENT_URL\",
+                   \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+                 }]
+               }" \
+               "$DISCORD_WEBHOOK"
+
+      - name: Send PR Review Comment Notification
+        if: github.event_name == 'pull_request_review_comment'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          COMMENT_BODY=$(echo '${{ github.event.comment.body }}' | sed 's/"/\\"/g')
+          COMMENT_AUTHOR="${{ github.event.comment.user.login }}"
+          COMMENT_URL="${{ github.event.comment.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+
+          curl -H "Content-Type: application/json" \
+               -d "{
+                 \"embeds\": [{
+                   \"title\": \"📝 Review Comment on PR #$PR_NUMBER\",
+                   \"description\": \"**$COMMENT_AUTHOR** commented on: *$PR_TITLE*\",
+                   \"color\": 16098851,
+                   \"fields\": [
+                     {
+                       \"name\": \"Comment\",
+                       \"value\": \"${COMMENT_BODY:0:1000}\",
+                       \"inline\": false
+                     }
+                   ],
+                   \"footer\": {
+                     \"text\": \"${{ github.repository }}\"
+                   },
+                   \"url\": \"$COMMENT_URL\",
+                   \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+                 }]
+               }" \
+               "$DISCORD_WEBHOOK"
+
+      - name: Send PR Review Notification
+        if: github.event_name == 'pull_request_review'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          REVIEW_STATE="${{ github.event.review.state }}"
+          REVIEW_BODY=$(echo '${{ github.event.review.body }}' | sed 's/"/\\"/g')
+          REVIEWER="${{ github.event.review.user.login }}"
+          REVIEW_URL="${{ github.event.review.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+
+          # Set color and emoji based on review state
+          if [[ "$REVIEW_STATE" == "approved" ]]; then
+            COLOR=3066993
+            EMOJI="✅"
+            STATE_TEXT="approved"
+          elif [[ "$REVIEW_STATE" == "changes_requested" ]]; then
+            COLOR=15158332
+            EMOJI="❌"
+            STATE_TEXT="requested changes on"
+          else
+            COLOR=16776960
+            EMOJI="💬"
+            STATE_TEXT="commented on"
+          fi
+
+          curl -H "Content-Type: application/json" \
+               -d "{
+                 \"embeds\": [{
+                   \"title\": \"$EMOJI PR Review #$PR_NUMBER\",
+                   \"description\": \"**$REVIEWER** $STATE_TEXT: *$PR_TITLE*\",
+                   \"color\": $COLOR,
+                   \"fields\": [
+                     {
+                       \"name\": \"Review\",
+                       \"value\": \"${REVIEW_BODY:0:1000}\",
+                       \"inline\": false
+                     }
+                   ],
+                   \"footer\": {
+                     \"text\": \"${{ github.repository }}\"
+                   },
+                   \"url\": \"$REVIEW_URL\",
+                   \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+                 }]
+               }" \
+               "$DISCORD_WEBHOOK"

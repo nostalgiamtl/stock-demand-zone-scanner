@@ -14,17 +14,22 @@ except ImportError:
     USE_PANDAS_TA = False
 
 
-class DemandZoneScanner:
-    def __init__(self, lookback_years=2, zone_tolerance=0.03):
+class SupplyDemandFlipScanner:
+    def __init__(self, lookback_years=2, level_tolerance=0.02, min_tests=3):
         """
-        Initialize the demand zone scanner.
+        Initialize the supply/demand flip scanner.
+
+        Finds levels that were tested multiple times as resistance (former supply),
+        then broke above and flipped to become support (new demand).
 
         Args:
             lookback_years (int): Number of years to look back for historical data
-            zone_tolerance (float): Price tolerance for being "at" a demand zone (3% default)
+            level_tolerance (float): Price tolerance for identifying same level (2% default)
+            min_tests (int): Minimum number of resistance tests required (3 default)
         """
         self.lookback_years = lookback_years
-        self.zone_tolerance = zone_tolerance
+        self.level_tolerance = level_tolerance
+        self.min_tests = min_tests
 
     def fetch_weekly_data(self, ticker):
         """
@@ -51,147 +56,234 @@ class DemandZoneScanner:
             print(f"Error fetching data for {ticker}: {e}")
             return None
 
-    def identify_consolidation_zones(self, df):
+    def find_swing_highs(self, df, order=5):
         """
-        Identify consolidation zones where price consolidated before rallying.
+        Find swing high points in price data.
 
-        A consolidation zone is defined as:
-        1. Multiple weeks of sideways price action (low volatility)
-        2. Followed by a significant rally (>10% move up)
-        3. Zone hasn't been broken significantly to the downside since formation
+        A swing high is a local maximum where the high is higher than
+        'order' bars on both sides.
+
+        Args:
+            df (pd.DataFrame): OHLCV data
+            order (int): Number of bars on each side to compare
+
+        Returns:
+            list: Indices of swing highs
+        """
+        highs = df['High'].values
+        swing_high_indices = argrelextrema(highs, np.greater, order=order)[0]
+        return swing_high_indices
+
+    def cluster_levels(self, prices, indices, dates, tolerance):
+        """
+        Cluster nearby price levels into zones.
+
+        Groups prices that are within tolerance % of each other.
+
+        Args:
+            prices (array): Array of price values
+            indices (array): Array of indices in original dataframe
+            dates (array): Array of dates corresponding to prices
+            tolerance (float): Price tolerance for clustering (e.g., 0.02 for 2%)
+
+        Returns:
+            list: List of level dictionaries with touches
+        """
+        if len(prices) == 0:
+            return []
+
+        levels = []
+        used = set()
+
+        for i in range(len(prices)):
+            if i in used:
+                continue
+
+            level_price = prices[i]
+            touches = [{
+                'price': prices[i],
+                'index': indices[i],
+                'date': dates[i]
+            }]
+            used.add(i)
+
+            # Find all prices within tolerance of this level
+            for j in range(i + 1, len(prices)):
+                if j in used:
+                    continue
+
+                price_diff_pct = abs(prices[j] - level_price) / level_price
+
+                if price_diff_pct <= tolerance:
+                    touches.append({
+                        'price': prices[j],
+                        'index': indices[j],
+                        'date': dates[j]
+                    })
+                    used.add(j)
+                    # Update level price to average
+                    level_price = np.mean([t['price'] for t in touches])
+
+            if len(touches) >= 1:
+                levels.append({
+                    'level': level_price,
+                    'touches': touches,
+                    'count': len(touches)
+                })
+
+        return levels
+
+    def identify_resistance_flips(self, df):
+        """
+        Identify resistance levels that flipped to support.
+
+        Process:
+        1. Find levels tested 3+ times as resistance (rejection points)
+        2. Verify price broke above the level
+        3. Verify price came back and bounced off it as support
+        4. Return valid flipped levels
 
         Args:
             df (pd.DataFrame): Weekly OHLCV data
 
         Returns:
-            list: List of dictionaries containing demand zone information
+            list: List of dictionaries containing flipped level information
         """
-        if df is None or len(df) < config.MIN_DATA_POINTS:
+        if df is None or len(df) < 30:  # Need enough data
             return []
 
-        zones = []
-        df = df.copy()
-        df['Range'] = ((df['High'] - df['Low']) / df['Low']) * 100
+        # Find swing highs (resistance test points)
+        swing_high_indices = self.find_swing_highs(df, order=3)
 
-        # Look for consolidation periods
-        min_consolidation_weeks = config.MIN_CONSOLIDATION_WEEKS
-        max_range_pct = config.MAX_CONSOLIDATION_RANGE_PCT
-        min_rally_pct = config.MIN_RALLY_PCT
+        if len(swing_high_indices) < self.min_tests:
+            return []
 
-        i = 0
-        while i < len(df) - min_consolidation_weeks - 5:
-            # Check for consolidation
-            consolidation_candles = []
-            j = i
+        # Get prices and dates at swing highs
+        swing_prices = df.iloc[swing_high_indices]['High'].values
+        swing_dates = df.iloc[swing_high_indices].index.values
 
-            # Find consecutive weeks with low range
-            while j < len(df) and len(consolidation_candles) < 20:
-                if df.iloc[j]['Range'] < max_range_pct:
-                    consolidation_candles.append(j)
-                    j += 1
-                else:
-                    if len(consolidation_candles) >= min_consolidation_weeks:
+        # Cluster swing highs into resistance levels
+        resistance_levels = self.cluster_levels(
+            swing_prices,
+            swing_high_indices,
+            swing_dates,
+            self.level_tolerance
+        )
+
+        # Filter for levels with minimum tests
+        resistance_levels = [l for l in resistance_levels if l['count'] >= self.min_tests]
+
+        flipped_levels = []
+
+        for level_data in resistance_levels:
+            level = level_data['level']
+            touches = level_data['touches']
+
+            # Get index of last resistance test
+            last_test_idx = max([t['index'] for t in touches])
+            last_test_date = df.index[last_test_idx]
+
+            # Check if price broke above this level after the tests
+            remaining_data = df.iloc[last_test_idx + 1:]
+
+            if len(remaining_data) < 5:  # Need data after breakout
+                continue
+
+            # Look for breakout (close above resistance)
+            breakout_found = False
+            breakout_idx = None
+
+            for i, (idx, row) in enumerate(remaining_data.iterrows()):
+                if row['Close'] > level * 1.02:  # Closed 2% above level
+                    breakout_found = True
+                    breakout_idx = last_test_idx + 1 + i
+                    breakout_date = idx
+                    break
+
+            if not breakout_found:
+                continue
+
+            # Check if price came back to test as support
+            data_after_breakout = df.iloc[breakout_idx + 1:]
+
+            if len(data_after_breakout) < 2:
+                continue
+
+            # Look for price returning to level and bouncing (support test)
+            support_test_found = False
+            support_test_date = None
+            support_bounce_pct = 0
+
+            for i, (idx, row) in enumerate(data_after_breakout.iterrows()):
+                # Check if low came near the level (within tolerance)
+                if row['Low'] <= level * (1 + self.level_tolerance * 1.5):
+                    # Check if price bounced from here (didn't break below)
+                    if row['Close'] > level * 0.98:  # Closed above level
+                        support_test_found = True
+                        support_test_date = idx
+
+                        # Calculate bounce strength
+                        future_data = data_after_breakout.iloc[i:i+5]
+                        if len(future_data) > 0:
+                            high_after = future_data['High'].max()
+                            support_bounce_pct = ((high_after - level) / level) * 100
+
                         break
-                    consolidation_candles = []
-                    j += 1
 
-            # If we found a consolidation period
-            if len(consolidation_candles) >= min_consolidation_weeks:
-                consolidation_high = df.iloc[consolidation_candles]['High'].max()
-                consolidation_low = df.iloc[consolidation_candles]['Low'].min()
-                consolidation_end_idx = consolidation_candles[-1]
+            if support_test_found:
+                # Calculate weeks between formation and now
+                weeks_old = (df.index[-1] - last_test_date).days / 7
 
-                # Check if there was a rally after consolidation
-                rally_window = config.RALLY_LOOKHEAD_WEEKS
-                if consolidation_end_idx + 5 < len(df):
-                    next_highs = df.iloc[consolidation_end_idx + 1:consolidation_end_idx + rally_window + 1]['High']
-                    max_next_high = next_highs.max() if len(next_highs) > 0 else 0
+                flipped_level = {
+                    'level': level,
+                    'resistance_tests': len(touches),
+                    'resistance_dates': [str(t['date'])[:10] for t in touches],
+                    'last_resistance_date': str(last_test_date)[:10],
+                    'breakout_date': str(breakout_date)[:10],
+                    'support_test_date': str(support_test_date)[:10] if support_test_date else None,
+                    'support_bounce_pct': support_bounce_pct,
+                    'weeks_old': round(weeks_old, 1),
+                    'strength': len(touches)  # More tests = stronger level
+                }
 
-                    rally_pct = ((max_next_high - consolidation_high) / consolidation_high) * 100
+                flipped_levels.append(flipped_level)
 
-                    if rally_pct >= min_rally_pct:
-                        # This is a valid demand zone
-                        zone = {
-                            'zone_low': consolidation_low,
-                            'zone_high': consolidation_high,
-                            'zone_mid': (consolidation_low + consolidation_high) / 2,
-                            'formed_date': df.index[consolidation_end_idx],
-                            'rally_pct': rally_pct,
-                            'strength': len(consolidation_candles)
-                        }
-                        zones.append(zone)
+        return flipped_levels
 
-                i = consolidation_end_idx + 1
-            else:
-                i += 1
-
-        return zones
-
-    def is_at_demand_zone(self, current_price, zones, df):
+    def is_currently_testing_flipped_level(self, current_price, flipped_levels):
         """
-        Check if current price is at or near any demand zone that previously held and broke out.
+        Check if current price is testing a flipped resistance-to-support level.
 
-        This identifies stocks that:
-        1. Had a support zone that held (didn't break down)
-        2. Broke out upward from that zone (validated support)
-        3. Have NOW pulled back to that same support level (buying opportunity)
+        Looking for:
+        - Price is at or near the flipped level (within tolerance)
+        - Level has proven itself (multiple resistance tests + successful flip)
 
         Args:
             current_price (float): Current stock price
-            zones (list): List of demand zones
-            df (pd.DataFrame): Price data to verify the stock rallied away and came back
+            flipped_levels (list): List of flipped resistance levels
 
         Returns:
-            dict: Information about the matched zone or None
+            dict: Information about the matched level or None
         """
-        for zone in zones:
-            zone_low = zone['zone_low']
-            zone_high = zone['zone_high']
-            zone_mid = zone['zone_mid']
-            formed_date = zone['formed_date']
+        if not flipped_levels:
+            return None
 
-            # Check if current price is at/near the zone (within 5% above zone high)
-            # We want stocks AT support, not way above it
-            lower_bound = zone_low * (1 - self.zone_tolerance)
-            upper_bound = zone_high * (1 + 0.05)  # Allow up to 5% above zone
+        for level_data in flipped_levels:
+            level = level_data['level']
+
+            # Check if current price is at/near the level
+            # Allow ±2% for at the level, up to +5% for bouncing from it
+            lower_bound = level * (1 - self.level_tolerance)
+            upper_bound = level * (1 + 0.05)  # 5% above for already bouncing
 
             if lower_bound <= current_price <= upper_bound:
-                # Verify this zone is "old enough" (formed at least 4 weeks ago)
-                # This ensures the rally happened in the PAST, not currently happening
-                weeks_since_formation = (df.index[-1] - formed_date).days / 7
-
-                if weeks_since_formation < 4:
-                    # Zone too recent, skip it
-                    continue
-
-                # Check that price actually rallied away from the zone and came back
-                # Look at price action AFTER zone formation
-                zone_idx = df.index.get_loc(formed_date)
-                if zone_idx + 5 < len(df):
-                    # Get price data after zone formation
-                    prices_after = df.iloc[zone_idx + 1:]['High']
-                    max_price_after = prices_after.max()
-
-                    # Verify price went significantly higher (10%+) after zone formation
-                    rally_from_zone = ((max_price_after - zone_high) / zone_high) * 100
-
-                    if rally_from_zone < 10:
-                        # Price never really left the zone, skip it
-                        continue
-
-                # Calculate distance from zone
-                if current_price < zone_low:
-                    distance_pct = ((zone_low - current_price) / current_price) * 100
-                elif current_price > zone_high:
-                    distance_pct = ((current_price - zone_high) / current_price) * 100
-                else:
-                    distance_pct = 0
+                # Calculate distance from level
+                distance_pct = ((current_price - level) / level) * 100
 
                 return {
-                    **zone,
+                    **level_data,
                     'current_price': current_price,
-                    'distance_pct': distance_pct,
-                    'weeks_since_formation': round(weeks_since_formation, 1)
+                    'distance_pct': round(distance_pct, 2)
                 }
 
         return None
@@ -286,36 +378,45 @@ class DemandZoneScanner:
 
     def scan_ticker(self, ticker):
         """
-        Scan a single ticker for demand zones.
+        Scan a single ticker for resistance levels that flipped to support.
+
+        Process:
+        1. Find levels tested 3+ times as resistance
+        2. Verify they broke above and flipped to support
+        3. Check if current price is testing the flipped level
+        4. Add technical indicators as supplementary info
 
         Args:
             ticker (str): Stock ticker symbol
 
         Returns:
-            dict: Scan results or None if no zones found
+            dict: Scan results or None if no matches found
         """
         df = self.fetch_weekly_data(ticker)
 
         if df is None or df.empty:
             return None
 
-        zones = self.identify_consolidation_zones(df)
+        # Find resistance levels that flipped to support
+        flipped_levels = self.identify_resistance_flips(df)
 
-        if not zones:
+        if not flipped_levels:
             return None
 
         current_price = df['Close'].iloc[-1]
-        matched_zone = self.is_at_demand_zone(current_price, zones, df)
 
-        if matched_zone:
-            # Calculate technical indicators
+        # Check if current price is testing any flipped level
+        matched_level = self.is_currently_testing_flipped_level(current_price, flipped_levels)
+
+        if matched_level:
+            # Calculate technical indicators (supplementary info)
             indicators = self.calculate_technical_indicators(df)
 
             return {
                 'ticker': ticker,
                 'current_price': current_price,
-                'zone': matched_zone,
-                'all_zones': zones,
+                'level': matched_level,  # Changed from 'zone' to 'level'
+                'all_levels': flipped_levels,  # All flipped levels found
                 'data': df,
                 'indicators': indicators
             }
@@ -324,14 +425,14 @@ class DemandZoneScanner:
 
     def scan_multiple_tickers(self, tickers, progress_callback=None):
         """
-        Scan multiple tickers for demand zones.
+        Scan multiple tickers for resistance-to-support flips.
 
         Args:
             tickers (list): List of ticker symbols
             progress_callback (callable): Optional callback for progress updates
 
         Returns:
-            list: List of stocks at demand zones
+            list: List of stocks testing flipped resistance levels
         """
         results = []
 
@@ -344,3 +445,7 @@ class DemandZoneScanner:
                 results.append(result)
 
         return results
+
+
+# Backward compatibility alias
+DemandZoneScanner = SupplyDemandFlipScanner

@@ -147,13 +147,14 @@ class DiscordNotifier:
             for stock in stocks:
                 ticker = stock['ticker']
                 current_price = stock['current_price']
-                zone = stock['zone']
+                level = stock['level']
                 indicators = stock.get('indicators', {})
 
-                # Build field value with indicators
+                # Build field value with level info
                 field_value = f"**Price:** ${current_price:.2f}\n"
-                field_value += f"**Zone:** ${zone['zone_low']:.2f} - ${zone['zone_high']:.2f}\n"
-                field_value += f"**Rally:** {zone['rally_pct']:.1f}%\n"
+                field_value += f"**Flipped Level:** ${level['level']:.2f}\n"
+                field_value += f"**Resistance Tests:** {level['resistance_tests']}x\n"
+                field_value += f"**Breakout:** {level['breakout_date'][:10]}\n"
 
                 if indicators:
                     if indicators.get('rsi'):
@@ -366,7 +367,7 @@ def detect_price_alerts(results):
                 {
                     "RSI": f"{indicators['rsi']:.1f}",
                     "Price": f"${result['current_price']:.2f}",
-                    "Zone": f"${result['zone']['zone_low']:.2f} - ${result['zone']['zone_high']:.2f}"
+                    "Level": f"${result['level']['level']:.2f} ({result['level']['resistance_tests']}x tested)"
                 }
             ))
 
@@ -379,7 +380,8 @@ def detect_price_alerts(results):
                 {
                     "RSI": f"{indicators['rsi']:.1f}",
                     "MACD": indicators['macd_trend'],
-                    "Price": f"${result['current_price']:.2f}"
+                    "Price": f"${result['current_price']:.2f}",
+                    "Level Tests": f"{result['level']['resistance_tests']}x"
                 }
             ))
 
