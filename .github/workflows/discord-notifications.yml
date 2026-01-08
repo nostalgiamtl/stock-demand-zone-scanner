@@ -1,10 +1,6 @@
 name: Discord Notifications
 
 on:
-  # Trigger on commit comments
-  commit_comment:
-    types: [created]
-
   # Trigger on issue comments (includes PR comments)
   issue_comment:
     types: [created]
@@ -68,38 +64,6 @@ jobs:
                    \"footer\": {
                      \"text\": \"${{ github.repository }}\"
                    },
-                   \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
-                 }]
-               }" \
-               "$DISCORD_WEBHOOK"
-
-      - name: Send Commit Comment Notification
-        if: github.event_name == 'commit_comment'
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          COMMENT_BODY=$(echo '${{ github.event.comment.body }}' | sed 's/"/\\"/g')
-          COMMENT_AUTHOR="${{ github.event.comment.user.login }}"
-          COMMENT_URL="${{ github.event.comment.html_url }}"
-          COMMIT_SHA="${{ github.event.comment.commit_id }}"
-
-          curl -H "Content-Type: application/json" \
-               -d "{
-                 \"embeds\": [{
-                   \"title\": \"💬 New Comment on Commit\",
-                   \"description\": \"**$COMMENT_AUTHOR** commented on commit \`${COMMIT_SHA:0:7}\`\",
-                   \"color\": 15844367,
-                   \"fields\": [
-                     {
-                       \"name\": \"Comment\",
-                       \"value\": \"${COMMENT_BODY:0:1000}\",
-                       \"inline\": false
-                     }
-                   ],
-                   \"footer\": {
-                     \"text\": \"${{ github.repository }}\"
-                   },
-                   \"url\": \"$COMMENT_URL\",
                    \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
                  }]
                }" \
