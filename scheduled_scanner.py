@@ -54,7 +54,7 @@ def main():
         return
 
     # Initialize scanner
-    scanner = DemandZoneScanner(lookback_years=2, zone_tolerance=0.03)
+    scanner = DemandZoneScanner(lookback_years=2, level_tolerance=0.03, min_tests=3)
 
     # Fetch tickers
     print("Fetching stock tickers (S&P 500 + NASDAQ)...")
