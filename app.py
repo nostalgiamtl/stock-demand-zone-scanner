@@ -15,21 +15,23 @@ st.set_page_config(page_title="Stock Demand Zone Scanner", layout="wide", page_i
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def cached_scan(lookback_years, zone_tolerance, cache_buster=None):
+def cached_scan(lookback_years, zone_tolerance, cache_buster=None, scanner_version="v2_flip"):
     """
     Cached version of the stock scan. Results are cached for 1 hour.
 
     Args:
         lookback_years (int): Number of years to look back
-        zone_tolerance (float): Tolerance for zone matching
+        zone_tolerance (float): Tolerance for level matching
         cache_buster: Dummy parameter to force cache refresh
+        scanner_version: Scanner version to invalidate cache on breaking changes
 
     Returns:
         tuple: (results, scan_timestamp)
     """
     scanner = DemandZoneScanner(
         lookback_years=lookback_years,
-        zone_tolerance=zone_tolerance
+        level_tolerance=zone_tolerance,
+        min_tests=3
     )
 
     tickers = get_sp500_tickers()
@@ -283,7 +285,8 @@ def main():
             results, scan_timestamp = cached_scan(
                 lookback_years=lookback_years,
                 zone_tolerance=zone_tolerance,
-                cache_buster=st.session_state.get('cache_buster', 0)
+                cache_buster=st.session_state.get('cache_buster', 0),
+                scanner_version="v2_flip"
             )
 
             progress_bar.progress(100)
