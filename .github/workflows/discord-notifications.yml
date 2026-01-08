@@ -33,41 +33,51 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -c 500)
           COMMIT_AUTHOR=$(git log -1 --pretty=%an)
           COMMIT_SHA=$(git log -1 --pretty=%h)
           COMMIT_URL="https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
 
-          curl -H "Content-Type: application/json" \
-               -d "{
-                 \"embeds\": [{
-                   \"title\": \"📝 New Push to ${{ github.ref_name }}\",
-                   \"description\": \"**$COMMIT_AUTHOR** pushed a new commit\",
-                   \"color\": 3447003,
-                   \"fields\": [
-                     {
-                       \"name\": \"Commit Message\",
-                       \"value\": \"${COMMIT_MSG:0:500}\",
-                       \"inline\": false
-                     },
-                     {
-                       \"name\": \"Commit\",
-                       \"value\": \"[\`$COMMIT_SHA\`]($COMMIT_URL)\",
-                       \"inline\": true
-                     },
-                     {
-                       \"name\": \"Branch\",
-                       \"value\": \"${{ github.ref_name }}\",
-                       \"inline\": true
-                     }
-                   ],
-                   \"footer\": {
-                     \"text\": \"${{ github.repository }}\"
-                   },
-                   \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
-                 }]
-               }" \
-               "$DISCORD_WEBHOOK"
+          # Create JSON payload using jq for proper escaping
+          jq -n \
+            --arg title "📝 New Push to ${{ github.ref_name }}" \
+            --arg desc "**$COMMIT_AUTHOR** pushed a new commit" \
+            --arg msg "$COMMIT_MSG" \
+            --arg sha "$COMMIT_SHA" \
+            --arg url "$COMMIT_URL" \
+            --arg branch "${{ github.ref_name }}" \
+            --arg repo "${{ github.repository }}" \
+            --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" \
+            '{
+              embeds: [{
+                title: $title,
+                description: $desc,
+                color: 3447003,
+                fields: [
+                  {
+                    name: "Commit Message",
+                    value: $msg,
+                    inline: false
+                  },
+                  {
+                    name: "Commit",
+                    value: ("[`" + $sha + "`](" + $url + ")"),
+                    inline: true
+                  },
+                  {
+                    name: "Branch",
+                    value: $branch,
+                    inline: true
+                  }
+                ],
+                footer: {
+                  text: $repo
+                },
+                timestamp: $timestamp
+              }]
+            }' | curl -H "Content-Type: application/json" \
+                      -d @- \
+                      "$DISCORD_WEBHOOK"
 
       - name: Send Issue/PR Comment Notification
         if: github.event_name == 'issue_comment'
